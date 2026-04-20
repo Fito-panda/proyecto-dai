@@ -1,0 +1,109 @@
+# ===== DAI · .gitignore =====
+# Nunca versionar en el repo publico. PII, credenciales, artefactos personales, caches.
+
+# ----- PII / datos de cliente -----
+# Nunca commitear data real de escuelas que adopten DAI ni del piloto historico.
+drive-download-escuela-precursora/
+pie-docx-extracted/
+registros/
+Panel-Escuela-*.html
+Panel-*-backup.html
+# Patrones genericos para PDFs personales (reemplaza nombres propios).
+*.personal.pdf
+*-privado.pdf
+Carpeta-Salida-Amijugando-*.md
+Carpeta-Salida-Amijugando-*.docx
+Carpeta-Amijugando-*.docx
+Amijugando-*.md
+
+# ----- Archivos del workspace de autor (no producto) -----
+.obsidian/
+.claude/
+*.old-standalone
+*.old-*
+
+# ----- Google Apps Script / clasp -----
+.clasp.json
+apps-script/.clasp.json
+# .clasp.json.template SI se commitea (no trae scriptId real).
+
+# ----- Credenciales / secrets -----
+.env
+.env.*
+*.env
+secrets.json
+credentials.json
+service-account*.json
+oauth-client*.json
+token.json
+*.pem
+*.key
+
+# ----- Node / npm -----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ----- Python (si alguien corre scripts auxiliares) -----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# ----- Editores / IDEs -----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ----- Sistemas operativos -----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----- Build / dist -----
+dist/
+build/
+*.log
+
+# ----- Especificos DAI -----
+# Snapshots de sesion y capsulas de trabajo interno no van al repo publico.
+CAPSULA-FASE-*.md
+Snapshot-*.md
+BRIEFING-*.md
+# MANIFEST del drop original (meta del proceso de construccion, no producto).
+MANIFEST.md
+
+# Archivos del proyecto DAI pre-pivot (hardcodeados a una escuela real).
+# Dejar solo los genericos; los hardcoded viven en el historico de la agencia.
+apps-script/src/config/ConfigRoot.gs.legacy
+apps-script/src/builders/ListasMaestrasBuilder.gs.legacy
+
+# Docx/PDF pedagogicos especificos que no son del producto
+01-Actividades-Geometria-EF.*
+02-Instrucciones-Dai.*
+03-Planificacion-Formal.*
+04-Esquemas-Graficos.pdf
+05-Instrucciones-Dai-Amijugando.md
+06-Postas-Atletismo-Innovadas-Amijugando.md
+007-Gestionar-Usuarios-Docentes.pdf
+021-Gestionar-Legajo-Digital-*.pdf
+Consultas-Frecuentes.pdf
+Circuito-Educativo-Cordoba-*.md
+Propuesta-Kit-Digital-Escuela-Rural.md
+Hallazgos-Escuela-Precursora-y-Redefinicion.md
+Hoja-de-Ruta-Dai.md
+Landscape-Research-Producto.md
+Preguntas-para-*.md
+Sistema-de-Formularios-Propuesta.md
+
+# Archivos sueltos con nombres UUID (origen desconocido, riesgo PII)
+[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*.pdf
+doc.pdf
