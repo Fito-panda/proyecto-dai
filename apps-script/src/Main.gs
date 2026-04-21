@@ -19,6 +19,29 @@ function bootstrapTemplate() {
 }
 
 /**
+ * buildAllDocTemplates — ejecutar UNA VEZ tras primer setupAll para crear los
+ * 9 templates Google Docs que los Forms formales (F05-F14 excl F07) usan
+ * para generar documentos imprimibles.
+ * Crea la carpeta `DAI-Templates-Docs-v1/` en Drive root + 9 Docs dentro.
+ * Idempotente: reusa templates existentes del registry.
+ * Fase 2.5 del plan v9.
+ */
+function buildAllDocTemplates() {
+  return DocTemplateBuilder.buildAll();
+}
+
+/**
+ * installFormalFormTriggers — ejecutar UNA VEZ tras buildAllDocTemplates para
+ * instalar los 9 triggers onFormSubmit que disparan generación automática de
+ * Google Doc al recibir respuestas de los Forms formales.
+ * Idempotente: reusa triggers existentes.
+ * Fase 2.5 del plan v9.
+ */
+function installFormalFormTriggers() {
+  return FormalFormsTriggerManager.install();
+}
+
+/**
  * Corre todo. Crea/actualiza Drive tree + Listas Maestras + los 14 forms + sheets + dashboard vacio.
  * Es idempotente: correr dos veces no duplica.
  * Se ejecuta AUTO desde onFormSubmitHandler si confirm_generate='Si',
@@ -60,8 +83,6 @@ function runAdmin() {
  * Usar cuando Coordinadora edita alumnos/docentes/espacios y hay que refrescar los dropdowns.
  */
 function refreshListasMaestras() {
-  // La implementacion mas simple: correr setupAll de nuevo.
-  // Como es idempotente y resetea items, los dropdowns se regeneran con el snapshot actual.
   return SetupOrchestrator.run(PHASES.ALL);
 }
 
@@ -118,20 +139,15 @@ function printFormUrls() {
 
 /**
  * onFormSubmitHandler — handler del trigger installable instalado por
- * FormOnboardingBuilder. Se dispara cuando la directora envía el Form de
- * onboarding.
+ * FormOnboardingBuilder (Fase 2). Se dispara cuando la directora envía el
+ * Form de onboarding.
  *
- * Lógica:
- *   1. Resetea el cache de CFG (fuerza re-lectura fresca del Sheet).
- *   2. Lee config via readConfigFromSheet (valida que las 3 keys obligatorias estén).
- *   3. Si confirm_generate='Si', ejecuta setupAll() automáticamente.
- *   4. Si 'No', solo loguea — la directora correrá setupAll manualmente.
+ * Si confirm_generate='Si', ejecuta setupAll() automáticamente.
+ * Si 'No', solo loguea — la directora correrá setupAll manualmente.
  *
- * Error handling:
- *   NO re-throwea errores. Los triggers installable que throw quedan en
- *   "failed" y Google puede re-intentarlos; como el Form ya escribió la
- *   respuesta, re-intentar sería operación doble. Mejor loguear y que
- *   Fito/directora investiguen via pestaña Log-<ts>.
+ * NO re-throw on error: los triggers installable que throw quedan en
+ * "failed" y Google puede re-intentarlos; como el Form ya escribió la
+ * respuesta, re-intentar sería operación doble. Mejor loguear.
  */
 function onFormSubmitHandler(e) {
   try {
@@ -167,9 +183,7 @@ function onFormSubmitHandler(e) {
     }
     console.error('onFormSubmit error: ' + msg);
     console.error(stack);
-    // NO re-throw — ver docstring.
   } finally {
-    // Flush del log al Sheet para que quede visible a la directora.
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       if (ss && typeof SetupLog !== 'undefined' && SetupLog.flushTo) {
@@ -179,4 +193,19 @@ function onFormSubmitHandler(e) {
       console.error('No se pudo flush del SetupLog: ' + flushErr);
     }
   }
+}
+
+/**
+ * onFormalFormSubmit — handler del trigger installable instalado por
+ * FormalFormsTriggerManager (Fase 2.5). Se dispara cuando la directora o
+ * cooperadora envía uno de los 9 Forms formales (F05, F06, F08-F14).
+ *
+ * Genera un Google Doc copia del template correspondiente, con los
+ * placeholders del Form reemplazados por las respuestas.
+ *
+ * Delega toda la lógica a FormalFormsTriggerManager.handleSubmit(e).
+ * NO re-throw on error (misma razón que onFormSubmitHandler).
+ */
+function onFormalFormSubmit(e) {
+  return FormalFormsTriggerManager.handleSubmit(e);
 }
