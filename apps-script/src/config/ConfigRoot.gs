@@ -1,71 +1,76 @@
 /**
  * ConfigRoot.gs — constantes globales del proyecto DAI.
  * Fase 1 del plan v9 implementada 2026-04-20 por FORJA2.
+ * R1 2026-04-21: CFG extendido con los 11 campos del onboarding (antes era
+ * NOOP — solo 3 keys llegaban al código, el resto se guardaba en
+ * _respuestas_config pero nadie lo leía).
  *
  * Arquitectura:
- *   - Valores estáticos del producto (PARENT_FOLDER_NAME, MASTER_LISTS_SHEET_NAME,
- *     DASHBOARD_SHEET_NAME, DASHBOARD_TABS) viven en CFG_DEFAULTS — no cambian
- *     entre escuelas.
- *   - Valores dinámicos por escuela (YEAR, SCHOOL_NAME, LOCATION) se leen lazy
- *     de la pestaña '_respuestas_config' del Sheet container-bound, populada
- *     por el Form de onboarding que se implementa en Fase 2 del plan v9.
- *   - CFG expuesto es un Proxy: primera lectura de cualquier propiedad dispara
- *     readConfigFromSheet() y cachea el resultado en _cfgCache para toda la
- *     ejecución del script. API (CFG.YEAR, CFG.SCHOOL_NAME, etc.) queda intacta
- *     para todos los consumers — cero refactor fuera de este archivo.
+ *   - Constantes del producto (PARENT_FOLDER_NAME, MASTER_LISTS_SHEET_NAME,
+ *     DASHBOARD_*) viven en CFG_DEFAULTS — no cambian entre escuelas.
+ *   - Valores dinámicos por escuela (YEAR, SCHOOL_NAME, LOCATION + 11 extras
+ *     del onboarding) se leen lazy de '_respuestas_config' del Sheet
+ *     container-bound, populada por el Form de onboarding.
+ *   - CFG expuesto es un Proxy: primera lectura dispara readConfigFromSheet()
+ *     y cachea el resultado en _cfgCache para toda la ejecución del script.
+ *   - API preserva CFG.YEAR, CFG.SCHOOL_NAME, CFG.LOCATION (Fase 1) + agrega
+ *     CFG.DIRECTOR_EMAIL, CFG.SECTION_COUNT, CFG.COOPERADORA_ACTIVA, etc.
  *
  * Referencias canónicas:
  *   - Plan v9 Fase 1: líneas 342-356 de plan-v1-publico-fases-1-2-3-2026-04-20.md
- *   - Schema del Form de onboarding: headers en inglés por R11 biblia (STANDARD NAMES)
+ *   - Schema del Form de onboarding: ConfigFormOnboarding.gs (snake_case, R11 biblia)
+ *   - Capsula reparación Fase 2 R1: CAPSULA-REPAIR-FASE-2-R1-FORJA2-2026-04-21.md
  */
 
 // --- Constantes estáticas del producto ---------------------------------------
 
 const CFG_DEFAULTS = Object.freeze({
-  // Carpeta raíz en My Drive donde DAI crea todo.
   PARENT_FOLDER_NAME: 'Escuela',
-
-  // Sheet de listas maestras — nombre fijo, no depende de escuela.
   MASTER_LISTS_SHEET_NAME: 'SHEET-Listas-Maestras',
-
-  // Dashboard — nombre genérico, la directora lo usa para pegar fórmulas IMPORTRANGE.
   DASHBOARD_SHEET_NAME: 'DASHBOARD-General',
+  DASHBOARD_TABS: ['Resumen del dia', 'Semana en curso', 'PIE - Estado', 'Cooperadora', 'Alertas'],
 
-  // Tabs del dashboard — vacías al crearse; la directora pega las fórmulas después.
-  DASHBOARD_TABS: ['Resumen del dia', 'Semana en curso', 'PIE - Estado', 'Cooperadora', 'Alertas']
+  // Defaults conservadores para los campos dinámicos (R1 fix B2).
+  // Si _respuestas_config no tiene el campo o está vacío, se usa el default.
+  SECTION_COUNT_DEFAULT: 3,
+  COOPERADORA_ACTIVA_DEFAULT: true,  // conservador: mejor crear F10-F12 y que sobren que que falten
+  PEI_ACTIVO_DEFAULT: false
 });
 
-// Nombre canónico de la pestaña con las respuestas del Form de onboarding.
-// La pestaña la crea y popula el Form (Fase 2) al recibir la primera respuesta.
 const CFG_TAB_NAME = '_respuestas_config';
 
-// Keys obligatorias en los headers de _respuestas_config.
-// Nombres en inglés por R11 biblia (STANDARD NAMES).
+// Solo estas 3 son obligatorias (validadas en readConfigFromSheet → throw).
+// Los otros campos del onboarding tienen defaults conservadores cuando faltan.
 const CFG_REQUIRED_KEYS = Object.freeze(['school_name', 'academic_year', 'location']);
 
-// Cache en memoria de la CFG resuelta. Se puebla en la primera invocación
-// de _loadCFG(). Dura toda la ejecución del script actual (Apps Script crea
-// una VM nueva por cada trigger, así que la caché es por ejecución).
 let _cfgCache = null;
+
+// --- Utilidades de parsing --------------------------------------------------
+
+/**
+ * _parseSiNo(value) — convierte "Si"/"Sí"/"si"/"sí"/"yes"/true a true.
+ * Cualquier otra cosa → false. Usado para flags booleanos del onboarding.
+ */
+function _parseSiNo(value) {
+  if (value === true) return true;
+  if (value === false || value === null || value === undefined) return false;
+  const s = String(value).toLowerCase().trim();
+  if (s === '') return false;
+  return s.indexOf('si') === 0 || s === 'sí' || s === 'yes' || s === 'true';
+}
+
+/**
+ * _parseInteger(value, defaultVal) — convierte a integer. Si no parsea o es
+ * <= 0, retorna defaultVal.
+ */
+function _parseInteger(value, defaultVal) {
+  const n = parseInt(String(value).trim(), 10);
+  if (isNaN(n) || n <= 0) return defaultVal;
+  return n;
+}
 
 // --- Lectura del Sheet -------------------------------------------------------
 
-/**
- * readConfigFromSheet() — lee la pestaña '_respuestas_config' del Spreadsheet
- * container-bound y devuelve un objeto con los headers como keys y los valores
- * de la última fila (respuesta más reciente del Form).
- *
- * Schema esperado (cuando el Form de Fase 2 esté vivo):
- *   | school_name | academic_year | location   | ... |
- *   | "Escuela X" | 2026          | "Ciudad"   | ... |
- *
- * Retorna: { school_name, academic_year, location, ...otros headers presentes }
- * Throws:
- *   - Error si no hay SpreadsheetApp activo (script no está container-bound).
- *   - Error "No encuentro la pestaña '_respuestas_config'..." si falta la pestaña.
- *   - Error "...no tiene respuestas del Form todavía" si la pestaña está vacía.
- *   - Error "Falta la clave obligatoria 'X'..." si alguna key requerida no está o está vacía.
- */
 function readConfigFromSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) {
@@ -93,14 +98,13 @@ function readConfigFromSheet() {
   }
 
   const headers = data[0].map(function(h) { return String(h).trim(); });
-  const latestRow = data[data.length - 1]; // última fila = respuesta más reciente
+  const latestRow = data[data.length - 1];
 
   const result = {};
   headers.forEach(function(header, idx) {
     if (header) result[header] = latestRow[idx];
   });
 
-  // Validar keys obligatorias
   CFG_REQUIRED_KEYS.forEach(function(key) {
     const v = result[key];
     if (v === undefined || v === null || String(v).trim() === '') {
@@ -126,30 +130,53 @@ function readConfigFromSheet() {
 // --- Resolución lazy + Proxy -------------------------------------------------
 
 /**
- * _loadCFG() — INTERNO. Fusiona CFG_DEFAULTS con los valores dinámicos leídos
- * del Sheet. Solo se llama desde el Proxy en la primera lectura de CFG.
+ * _loadCFG() — INTERNO. Fusiona CFG_DEFAULTS con los valores dinámicos del
+ * onboarding. 3 required (obliga a tenerlos) + 11 extras con fallback a default.
+ * Solo se llama desde el Proxy en la primera lectura de CFG.
  */
 function _loadCFG() {
   const fromSheet = readConfigFromSheet();
 
   return Object.freeze({
+    // ---- Constantes del producto ----
     PARENT_FOLDER_NAME: CFG_DEFAULTS.PARENT_FOLDER_NAME,
+    MASTER_LISTS_SHEET_NAME: CFG_DEFAULTS.MASTER_LISTS_SHEET_NAME,
+    DASHBOARD_SHEET_NAME: CFG_DEFAULTS.DASHBOARD_SHEET_NAME,
+    DASHBOARD_TABS: CFG_DEFAULTS.DASHBOARD_TABS,
+
+    // ---- 3 required del Form de onboarding (contrato Fase 1) ----
     YEAR: String(fromSheet.academic_year),
     SCHOOL_NAME: String(fromSheet.school_name),
     LOCATION: String(fromSheet.location),
-    MASTER_LISTS_SHEET_NAME: CFG_DEFAULTS.MASTER_LISTS_SHEET_NAME,
-    DASHBOARD_SHEET_NAME: CFG_DEFAULTS.DASHBOARD_SHEET_NAME,
-    DASHBOARD_TABS: CFG_DEFAULTS.DASHBOARD_TABS
+
+    // ---- 11 extras del Form de onboarding (R1 fix B2 — 2026-04-21) ----
+    // Datos de la directora
+    DIRECTOR_NAME: String(fromSheet.director_name || ''),
+    DIRECTOR_EMAIL: String(fromSheet.director_email || ''),
+    DIRECTOR_CUIL: String(fromSheet.director_cuil || ''),
+
+    // Turno / estructura
+    TURNO: String(fromSheet.turno || ''),
+    SECTION_COUNT: _parseInteger(fromSheet.section_count, CFG_DEFAULTS.SECTION_COUNT_DEFAULT),
+
+    // Curriculum + recursos humanos
+    ESPACIOS_CURRICULARES: String(fromSheet.espacios_curriculares || ''),  // CSV del checkbox Form
+    TEACHER_EMAILS: String(fromSheet.teacher_emails || ''),  // string multi-linea del PARAGRAPH
+
+    // Flags booleanos (parsed de "Si"/"No")
+    COOPERADORA_ACTIVA: fromSheet.cooperadora_activa !== undefined && fromSheet.cooperadora_activa !== ''
+      ? _parseSiNo(fromSheet.cooperadora_activa)
+      : CFG_DEFAULTS.COOPERADORA_ACTIVA_DEFAULT,
+    PEI_ACTIVO: fromSheet.pei_activo !== undefined && fromSheet.pei_activo !== ''
+      ? _parseSiNo(fromSheet.pei_activo)
+      : CFG_DEFAULTS.PEI_ACTIVO_DEFAULT,
+
+    // Libres
+    OBSERVATIONS: String(fromSheet.observations || ''),
+    CONFIRM_GENERATE: String(fromSheet.confirm_generate || '')
   });
 }
 
-/**
- * CFG — objeto global lazy. La primera lectura de cualquier propiedad dispara
- * _loadCFG() (que lee el Sheet); las siguientes usan _cfgCache en memoria.
- *
- * API preservada: los consumers (FolderBuilder, SetupOrchestrator, etc.) siguen
- * usando CFG.YEAR, CFG.SCHOOL_NAME, etc. sin enterarse del refactor.
- */
 const CFG = new Proxy({}, {
   get: function(_target, prop) {
     if (!_cfgCache) {
@@ -161,29 +188,16 @@ const CFG = new Proxy({}, {
 
 // --- Helpers dependientes de CFG --------------------------------------------
 
-/**
- * yearFolderName(): nombre de la subcarpeta del año actual.
- * Ej: '2026'
- */
 function yearFolderName() {
   return String(CFG.YEAR);
 }
 
-/**
- * sheetName(base): aplica sufijo -YYYY al nombre base.
- * Ej: sheetName('SHEET-Planificaciones') -> 'SHEET-Planificaciones-2026'
- */
 function sheetName(base) {
   return base + '-' + CFG.YEAR;
 }
 
 // --- Test utility (solo para SmokeTests.gs) ---------------------------------
 
-/**
- * _resetCFGCache() — INTERNO. Fuerza re-lectura del Sheet en el próximo
- * acceso a CFG. Usado por SmokeTests para poder probar errores de config
- * sin mantener estado entre tests. NO usar en código de producción.
- */
 function _resetCFGCache() {
   _cfgCache = null;
 }

@@ -27,7 +27,8 @@ const SetupOrchestrator = {
     try {
       const parent = FolderBuilder.ensureParentFolder();
       const yearFolder = FolderBuilder.ensureYearFolder(parent);
-      const folders = FolderBuilder.buildTree(yearFolder, FOLDERS_CFG);
+      // R1 fix B1: getFoldersCfg() genera Legajos/Seccion-N según CFG.SECTION_COUNT.
+      const folders = FolderBuilder.buildTree(yearFolder, getFoldersCfg());
       const sheetsFolder = folders['06-Sheets-Maestros'];
       const formsFolder = folders['07-Formularios'];
 
@@ -57,9 +58,15 @@ const SetupOrchestrator = {
     }
 
     // 6. forms (continue-on-error)
-    const queue = PhaseFilter.filter(FORMS_CFG, phase);
+    // R1 fix B3 (=D7): PhaseFilter recibe onboardingFlags. Si cooperadora_activa=false,
+    // omite F10-F12. Valor viene de CFG.COOPERADORA_ACTIVA (parsed "Si"/"No" → boolean).
+    const onboardingFlags = {
+      cooperadora_activa: CFG.COOPERADORA_ACTIVA
+    };
+    const queue = PhaseFilter.filter(FORMS_CFG, phase, onboardingFlags);
     SetupLog.info('Forms a procesar en esta fase: ' + queue.length, {
-      ids: queue.map(function(f) { return f.id; })
+      ids: queue.map(function(f) { return f.id; }),
+      onboardingFlags: onboardingFlags
     });
 
     queue.forEach(function(cfg) {
