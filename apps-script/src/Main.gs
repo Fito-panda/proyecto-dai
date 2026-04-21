@@ -9,8 +9,20 @@
  */
 
 /**
+ * bootstrapTemplate — ejecutar UNA VEZ por Template (operador DAI).
+ * Crea las 8 pestañas del Sheet + Form de onboarding + trigger onFormSubmit.
+ * Idempotente: correr dos veces no duplica.
+ * Fase 2 del plan v9.
+ */
+function bootstrapTemplate() {
+  return TemplateBootstrapper.run();
+}
+
+/**
  * Corre todo. Crea/actualiza Drive tree + Listas Maestras + los 14 forms + sheets + dashboard vacio.
  * Es idempotente: correr dos veces no duplica.
+ * Se ejecuta AUTO desde onFormSubmitHandler si confirm_generate='Si',
+ * o manualmente desde el IDE si la directora eligió 'No'.
  */
 function setupAll() {
   return SetupOrchestrator.run(PHASES.ALL);
@@ -98,4 +110,73 @@ function printFormUrls() {
     console.log('    ' + f.url);
   });
   return forms;
+}
+
+// ============================================================================
+// Trigger handlers (NO llamar manualmente — los dispara el sistema)
+// ============================================================================
+
+/**
+ * onFormSubmitHandler — handler del trigger installable instalado por
+ * FormOnboardingBuilder. Se dispara cuando la directora envía el Form de
+ * onboarding.
+ *
+ * Lógica:
+ *   1. Resetea el cache de CFG (fuerza re-lectura fresca del Sheet).
+ *   2. Lee config via readConfigFromSheet (valida que las 3 keys obligatorias estén).
+ *   3. Si confirm_generate='Si', ejecuta setupAll() automáticamente.
+ *   4. Si 'No', solo loguea — la directora correrá setupAll manualmente.
+ *
+ * Error handling:
+ *   NO re-throwea errores. Los triggers installable que throw quedan en
+ *   "failed" y Google puede re-intentarlos; como el Form ya escribió la
+ *   respuesta, re-intentar sería operación doble. Mejor loguear y que
+ *   Fito/directora investiguen via pestaña Log-<ts>.
+ */
+function onFormSubmitHandler(e) {
+  try {
+    SetupLog.reset();
+    SetupLog.info('===== onFormSubmit triggered =====', {
+      timestamp: new Date().toISOString(),
+      triggerUid: (e && e.triggerUid) || '(unknown)'
+    });
+
+    _resetCFGCache();
+    const config = readConfigFromSheet();
+
+    SetupLog.info('Config leída post-submit', {
+      school_name: config.school_name,
+      academic_year: config.academic_year,
+      location: config.location,
+      confirm_generate: config.confirm_generate
+    });
+
+    const confirmVal = String(config.confirm_generate || '').toLowerCase();
+    if (confirmVal.indexOf('si') === 0) {
+      SetupLog.info('confirm_generate=Si → ejecutando setupAll...');
+      setupAll();
+      SetupLog.info('===== onFormSubmit + setupAll OK =====');
+    } else {
+      SetupLog.info('confirm_generate=No → setupAll omitido. Corré setupAll manualmente cuando estés lista.');
+    }
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    const stack = (err && err.stack) || '(no stack)';
+    if (typeof SetupLog !== 'undefined' && SetupLog && SetupLog.error) {
+      SetupLog.error('onFormSubmit error', { message: msg, stack: stack });
+    }
+    console.error('onFormSubmit error: ' + msg);
+    console.error(stack);
+    // NO re-throw — ver docstring.
+  } finally {
+    // Flush del log al Sheet para que quede visible a la directora.
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (ss && typeof SetupLog !== 'undefined' && SetupLog.flushTo) {
+        SetupLog.flushTo(ss);
+      }
+    } catch (flushErr) {
+      console.error('No se pudo flush del SetupLog: ' + flushErr);
+    }
+  }
 }

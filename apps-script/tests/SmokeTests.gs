@@ -1,15 +1,15 @@
 /**
  * SmokeTests.gs — prueba rapida del pipeline sin crear los 14 forms.
  *
- * runSmokeTests() ejecuta 2 bloques:
+ * runSmokeTests() ejecuta 3 bloques:
  *   1. FormBuilder applyItem pipeline — crea folder + form + sheet temporal,
  *      aplica 1 item de cada tipo, valida count, linkea Sheet, cleanup.
- *   2. readConfigFromSheet() error handling (Fase 1 2026-04-20) — valida que
- *      la función tire error con mensaje canónico cuando la pestaña
- *      '_respuestas_config' no existe (estado pre-Fase-2).
- *
- * Útil para verificar que los permisos estan OK y que el contrato de CFG se
- * cumple antes/después de que Fase 2 popule la pestaña.
+ *   2. readConfigFromSheet() error handling (Fase 1) — valida que la función
+ *      tire error con mensaje canónico cuando la pestaña '_respuestas_config'
+ *      no existe.
+ *   3. ConfigSheetBuilder idempotency (Fase 2) — valida que sobre un Sheet
+ *      temporal, la primera corrida crea 8 pestañas y la segunda reusa las 8
+ *      sin duplicar.
  */
 
 function runSmokeTests() {
@@ -74,8 +74,13 @@ function runSmokeTests() {
   }
 
   // Test adicional Fase 1: readConfigFromSheet() error handling.
-  // No requiere artifacts temporales — opera sobre el Sheet container-bound.
+  // Opera sobre el Sheet container-bound — no requiere artifacts temporales.
   testReadConfigFromSheet();
+
+  // Test adicional Fase 2: ConfigSheetBuilder idempotency.
+  // Usa un Sheet temporal (aislado del container-bound) para no afectar
+  // el template real ni el testReadConfigFromSheet de arriba.
+  testConfigSheetBuilderIdempotency();
 
   console.log('===== Smoke test OK (' +
     ((new Date()) - testStartedAt) + ' ms) =====');
@@ -89,14 +94,13 @@ function runSmokeTests() {
  * Estado pre-Fase-2: la pestaña NO existe → el test espera el error "No
  * encuentro la pestaña '_respuestas_config'...".
  *
- * Estado post-Fase-2: la pestaña existe (la creó el Form de onboarding) →
- * el test skipea el path de error. Cuando se cierre Fase 2 habrá que extender
+ * Estado post-Fase-2: la pestaña existe (la creó FormOnboardingBuilder) → el
+ * test skipea el path de error. Cuando se cierre Fase 2 habrá que extender
  * este test para validar el path exitoso (keys correctas, tipos, etc.).
  */
 function testReadConfigFromSheet() {
   console.log('----- Test Fase 1: readConfigFromSheet() error handling -----');
 
-  // Fuerza re-lectura del Sheet en la siguiente llamada a CFG / readConfigFromSheet.
   _resetCFGCache();
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -119,10 +123,53 @@ function testReadConfigFromSheet() {
     Guard.assert(threw,
       'FAIL: readConfigFromSheet() debería haber tirado error porque la pestaña no existe, pero retornó sin error.');
   } else {
-    // Path post-Fase-2: la pestaña existe. Solo loguear — test de path exitoso
-    // se implementará cuando Fase 2 cierre y tengamos schema real de respuestas.
     console.log('SKIP: la pestaña "' + CFG_TAB_NAME + '" existe. Test de path exitoso pendiente hasta cerrar Fase 2.');
   }
 
   console.log('----- Test readConfigFromSheet OK -----');
+}
+
+/**
+ * testConfigSheetBuilderIdempotency() — valida que ConfigSheetBuilder.build()
+ * sobre un Sheet temporal crea 8 pestañas la primera corrida y las reusa sin
+ * duplicar en la segunda corrida (guardrail anti-pérdida del plan v9).
+ *
+ * Usa un Sheet temporal NO container-bound para evitar efectos colaterales
+ * en el Sheet real del Template.
+ */
+function testConfigSheetBuilderIdempotency() {
+  console.log('----- Test Fase 2: ConfigSheetBuilder idempotency -----');
+
+  const tempName = 'DAI-SmokeTest-ConfigSheetBuilder-' + Date.now();
+  const ss = SpreadsheetApp.create(tempName);
+  const tempFileId = ss.getId();
+
+  try {
+    const expectedCount = ConfigSheetBuilder.SCHEMA.length; // 8 pestañas
+
+    // 1ra corrida: crear todas las pestañas.
+    const firstRun = ConfigSheetBuilder.build(ss);
+    Guard.assert(firstRun.created.length === expectedCount,
+      'FAIL: primera corrida deberia crear ' + expectedCount + ' pestanas, creo ' + firstRun.created.length);
+    Guard.assert(firstRun.reused.length === 0,
+      'FAIL: primera corrida no deberia reusar ninguna, reuso ' + firstRun.reused.length);
+    console.log('PASS: 1ra corrida creo ' + firstRun.created.length + ' pestanas, cero reusadas.');
+
+    // 2da corrida: todas deberían reusar.
+    const secondRun = ConfigSheetBuilder.build(ss);
+    Guard.assert(secondRun.reused.length === expectedCount,
+      'FAIL: segunda corrida deberia reusar ' + expectedCount + ' pestanas, reuso ' + secondRun.reused.length);
+    Guard.assert(secondRun.created.length === 0,
+      'FAIL: segunda corrida no deberia crear nada, creo ' + secondRun.created.length);
+    console.log('PASS: 2da corrida reuso ' + secondRun.reused.length + ' pestanas, cero duplicadas.');
+
+  } finally {
+    try {
+      DriveApp.getFileById(tempFileId).setTrashed(true);
+    } catch (err) {
+      console.log('No se pudo trashear Sheet temporal de ConfigSheetBuilder test: ' + err);
+    }
+  }
+
+  console.log('----- Test ConfigSheetBuilder idempotency OK -----');
 }
