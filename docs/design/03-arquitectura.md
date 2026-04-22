@@ -66,8 +66,9 @@ apps-script/                             # codigo Apps Script
 │   ├── orchestration/
 │   │   └── SetupOrchestrator.gs         # orquesta el orden: fundaciones -> listas -> forms
 │   ├── webapp/
-│   │   ├── WebApp.gs                    # doGet() sirve el panel HTML con URLs reales
-│   │   └── Panel.html                   # template del panel, inyecta URLs desde Registry
+│   │   ├── WebApp.gs                    # doGet() rutea por ?role=admin vs default
+│   │   ├── PanelDirectora.html          # dashboard directora (Fase 3a)
+│   │   └── PanelDocentes.html           # panel mobile-first 14 botones (Fase 3a)
 │   └── utils/
 │       ├── Types.gs                     # enums FIELD_TYPES, PHASES, ARTIFACT_STATUS
 │       └── Guard.gs                     # assertions + retry con backoff
@@ -151,7 +152,7 @@ El Sheet que cada escuela copia. Pestañas (con protección + validaciones donde
 
 ### Fase 3 — Orchestrator + WebApp
 - `SetupOrchestrator.run()` completo con los 14 forms activables
-- `WebApp.gs + Panel.html` que sirve el panel HTML
+- `WebApp.gs + PanelDirectora.html + PanelDocentes.html` con ruteo por `?role=admin`
 - `deployWebApp()` que publica como web app
 
 ### Fase 4 — Piloto

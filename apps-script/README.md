@@ -161,8 +161,9 @@ apps-script/
 │   ├── orchestration/
 │   │   └── SetupOrchestrator.gs
 │   ├── webapp/
-│   │   ├── WebApp.gs              # doGet() — sirve el panel HTML
-│   │   └── Panel.html             # template del panel público
+│   │   ├── WebApp.gs              # doGet() — rutea por ?role=admin (Fase 3a)
+│   │   ├── PanelDirectora.html    # dashboard directora con links a sheets
+│   │   └── PanelDocentes.html     # 14 botones mobile-first agrupados por fase
 │   └── utils/
 │       ├── Types.gs
 │       └── Guard.gs
