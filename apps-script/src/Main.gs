@@ -109,6 +109,16 @@ function resetRegistry() {
 }
 
 /**
+ * regenerateTuPanelTab — actualiza la pestaña "🚀 Tu Panel" del Sheet con los
+ * 2 URLs del panel web. Correr después de hacer el primer "Nueva implementación"
+ * desde el IDE, o cada vez que querés refrescar los URLs en la pestaña.
+ * Fase 3b.1 del plan v9.
+ */
+function regenerateTuPanelTab() {
+  return TuPanelTabBuilder.ensure(SpreadsheetApp.getActiveSpreadsheet());
+}
+
+/**
  * Imprime las URLs publicas de los 14 forms registrados. Util para compartir con docentes.
  */
 function printFormUrls() {

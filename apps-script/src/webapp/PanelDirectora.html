@@ -59,30 +59,53 @@
       min-height: 48px;
       border: none;
       cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.10);
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    .btn:hover { box-shadow: 0 3px 7px rgba(0,0,0,0.14); }
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.18);
     }
     .btn.secondary { background: white; color: #2b4a6f; border: 1.5px solid #2b4a6f; }
     .btn.warn { background: #c85a5a; }
     .btn.warn::after { content: '  ⚠'; }
+    .btn.success {
+      background: #2e8b57;
+      font-size: 17px;
+      font-weight: 600;
+      padding: 16px 18px;
+      min-height: 54px;
+    }
+    .btn.success:hover { background: #267a4b; }
     .btn-row { display: flex; gap: 8px; margin: 8px 0; }
     .btn-row .btn { margin: 0; flex: 1; }
     .qr-box {
       background: #f0f0f2;
-      border: 1.5px dashed #aaa;
       border-radius: 10px;
-      padding: 24px;
+      padding: 20px;
       text-align: center;
       margin: 12px 0;
       font-size: 13px;
       color: #666;
     }
+    .qr-box.placeholder { border: 1.5px dashed #aaa; }
+    .qr-img {
+      background: white;
+      padding: 8px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
     .qr-box .placeholder-label { font-size: 14px; font-weight: 600; color: #888; margin-bottom: 8px; }
+    .qr-box .qr-hint { font-size: 13px; color: #666; margin-top: 10px; }
     .qr-box .url {
       display: block;
       font-family: monospace;
-      font-size: 12px;
+      font-size: 11px;
       word-break: break-all;
       margin-top: 10px;
       color: #2b4a6f;
+      opacity: 0.7;
     }
     .sheet-list { list-style: none; padding: 0; margin: 0; }
     .sheet-list li {
@@ -93,16 +116,44 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14px 4px;
+      padding: 14px 8px;
       color: #2b4a6f;
       text-decoration: none;
       font-size: 15px;
       min-height: 48px;
+      border-radius: 6px;
+      transition: background 0.08s ease;
     }
+    .sheet-link:hover { background: #eef3f9; }
+    .sheet-link:active { background: #dde6f0; }
     .sheet-link .arrow { color: #aaa; font-size: 18px; }
     .sheet-link.missing { color: #999; cursor: not-allowed; }
+    .sheet-link.missing:hover { background: transparent; }
     .sheet-link.missing .arrow { color: #ccc; }
     .hint { font-size: 13px; color: #777; margin: 8px 0 0; font-style: italic; }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #2e8b57;
+      color: white;
+      padding: 14px 22px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.18);
+      opacity: 0;
+      transition: all 0.28s cubic-bezier(0.2, 0.9, 0.4, 1);
+      pointer-events: none;
+      max-width: 88%;
+      text-align: center;
+      z-index: 9999;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
     footer {
       text-align: center;
       color: #888;
@@ -140,16 +191,21 @@
   </section>
 
   <section>
-    <h2>📱 Panel para las maestras</h2>
-    <div class="qr-box">
-      <div class="placeholder-label">[ QR en Fase 3b ]</div>
-      Escaneá desde el celular de cada maestra, o copiá el link y mandalo por WhatsApp.
-      <span class="url"><?= ctx.panelDocentesUrl || 'script.google.com/.../exec (se completa al deployar)' ?></span>
-    </div>
-    <div class="btn-row">
-      <button class="btn" onclick="copyLink()">Copiar link</button>
-      <a class="btn secondary" href="<?= ctx.panelDocentesUrl ?>" target="_blank">Abrir panel</a>
-    </div>
+    <h2>📱 Link para compartir con las maestras</h2>
+    <? if (ctx.panelDocentesQrUrl) { ?>
+      <div class="qr-box">
+        <img class="qr-img" src="<?= ctx.panelDocentesQrUrl ?>" width="200" height="200" alt="QR Panel Docentes">
+        <div class="qr-hint">Pueden escanear con el celular, o compartís el link por WhatsApp con el botón de abajo.</div>
+      </div>
+    <? } else { ?>
+      <div class="qr-box placeholder">
+        <div class="placeholder-label">QR se activa cuando publiques el Panel</div>
+        <div class="qr-hint">Ver proyectodai.com/ayuda → Paso 0</div>
+      </div>
+    <? } ?>
+    <button class="btn success" onclick="copyLink()">📋 Copiar link para WhatsApp</button>
+    <a class="btn secondary" href="<?= ctx.panelDocentesUrl ?>" target="_blank">Abrir panel de prueba</a>
+    <span class="url" style="display:block;font-family:monospace;font-size:11px;color:#888;word-break:break-all;margin-top:8px;"><?= ctx.panelDocentesUrl || '(URL disponible tras publicar el Panel)' ?></span>
   </section>
 
   <section>
@@ -180,23 +236,42 @@
     Sistema DAI · <a href="https://proyectodai.com" target="_blank">proyectodai.com</a>
   </footer>
 
+  <div id="toast" class="toast"></div>
+
 </div>
 
 <script>
+  function showToast(message) {
+    var toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function() {
+      toast.classList.remove('show');
+    }, 2600);
+  }
+
   function copyLink() {
     var url = <?= JSON.stringify(ctx.panelDocentesUrl || '') ?>;
-    if (!url) { alert('El panel todavía no fue deployado. Viene en Fase 3b.'); return; }
+    if (!url) {
+      showToast('Todavía no publicaste tu Panel. Ver /ayuda Paso 0.');
+      return;
+    }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(function() { alert('Link copiado.'); });
+      navigator.clipboard.writeText(url).then(
+        function() { showToast('✓ Link copiado. Pegalo en el grupo de docentes.'); },
+        function() { window.prompt('Copiá este link:', url); }
+      );
     } else {
       window.prompt('Copiá este link:', url);
     }
   }
 
   function confirmRegen() {
-    // Fase 3a: stub. En 3b llama google.script.run.regenerateAll().
+    // Fase 3a/3b: stub. El wiring con regenerateAll() viene en una iteración futura.
     if (confirm('¿Regenerar todo el sistema?\n\nEsto rehace la estructura de Drive, Forms y Sheets sin borrar respuestas.\n\nPuede tardar 5-6 minutos.')) {
-      alert('En Fase 3a el botón está listo pero no conectado. La regeneración se activa en Fase 3b.');
+      showToast('Esta acción se conecta en una próxima iteración.');
     }
   }
 </script>

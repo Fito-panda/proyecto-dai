@@ -54,9 +54,19 @@
       border: 1.5px solid #e0e0e4;
       border-radius: 10px;
       min-height: 56px;
-      transition: all 0.15s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease, border-color 0.08s ease;
     }
-    .form-btn:active { background: #eef5ff; border-color: #2b4a6f; }
+    .form-btn:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.10);
+      border-color: #c5cedc;
+    }
+    .form-btn:active {
+      background: #eef5ff;
+      border-color: #2b4a6f;
+      transform: translateY(1px);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+    }
     .form-btn .icon {
       font-size: 28px;
       margin-right: 14px;

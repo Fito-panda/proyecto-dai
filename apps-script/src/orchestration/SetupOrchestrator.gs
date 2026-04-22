@@ -98,6 +98,14 @@ const SetupOrchestrator = {
       report.shared = { shared: [], skipped: [], reason: 'error', error: String(err) };
     }
 
+    // 6.7 pestaña "Tu Panel" en el Sheet container-bound con los 2 URLs (Fase 3b.1, continue-on-error)
+    try {
+      report.tuPanel = TuPanelTabBuilder.ensure(SpreadsheetApp.getActiveSpreadsheet());
+    } catch (err) {
+      SetupLog.warn('Tu Panel tab fallo — continuando', { err: String(err) });
+      report.tuPanel = { created: false, updated: false, error: String(err) };
+    }
+
     // 7. flush log
     this._flushLogSafe(ctx.masterListsSpreadsheet);
 

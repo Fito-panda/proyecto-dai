@@ -1,22 +1,30 @@
 /**
- * WebApp.gs — Fase 3a (plan v9)
+ * WebApp.gs — Fase 3a + 3b (plan v9, scope cut 2026-04-22)
  *
  * Ruteo doGet(e):
  *   - ?role=admin  -> PanelDirectora.html
  *   - (sin param)  -> PanelDocentes.html
  *
- * Scope Fase 3a (explícito):
- *   - Render mobile-first de ambos paneles.
+ * Scope implementado (Fase 3a + 3b):
+ *   - Render mobile-first de ambos paneles con shadows/hover/active states.
  *   - Lee contexto de escuela desde CFG (Fase 1).
  *   - Arma URLs reales de forms + sheets desde Properties Registry
- *     (ya poblado por Fase 2 + Fase 2.5 — no hace falta hardcodear).
- *   - Lazy cache de URLs publicadas para evitar N FormApp.openById por render.
+ *     (ya poblado por Fase 2 + Fase 2.5).
+ *   - Lazy cache de URLs publicadas ('form-url:Fxx') para evitar N
+ *     FormApp.openById por render.
+ *   - QR inline en Panel Directora vía QuickChart.io (imagen real,
+ *     no placeholder).
+ *   - Cache de la URL self del web app en Properties ('webapp-url:teacher')
+ *     para que TuPanelTabBuilder (invocado desde contexto no-web) la pueda
+ *     leer — ScriptApp.getService().getUrl() solo funciona en doGet.
  *
- * Fuera de scope Fase 3a (queda para 3b):
- *   - deployWebApps() helper.
- *   - QR generator real (por ahora placeholder).
- *   - sendFinalEmail() + PDF (Capa 3 del plan v9).
- *   - Wiring del botón "Regenerar sistema" con setupAll() (botón existe, stub).
+ * Fuera de scope (cortado en cazada 2026-04-22, ver emergentes DAI):
+ *   - PDF generator de 2 páginas — KITCHEN SINK, nadie lo pidió.
+ *   - Email final con adjunto — reemplazado por pestaña 'Tu Panel' del Sheet.
+ *   - deployWebApps() programático — no existe API usable al 2026. La
+ *     directora hace deploy manual una vez (guiado en /ayuda Paso 0).
+ *   - Wiring del botón "Regenerar sistema" con setupAll() (sigue stub).
+ *   - Wiring del botón "Imprimir guía" (sigue stub).
  */
 
 function doGet(e) {
@@ -72,6 +80,9 @@ const WebApp = (function() {
     if (isAdmin) {
       ctx.sheetLinks = _getSheetLinks(year);
       ctx.panelDocentesUrl = _getSelfUrl();
+      ctx.panelDocentesQrUrl = ctx.panelDocentesUrl
+        ? 'https://quickchart.io/qr?text=' + encodeURIComponent(ctx.panelDocentesUrl) + '&size=240&margin=2&ecLevel=M'
+        : '';
       ctx.onboardingFormUrl = _getOnboardingFormUrl();
       const totalForms = (typeof FORMS_CFG !== 'undefined' ? FORMS_CFG.length : 0);
       const activeForms = _filterByOnboardingFlags(typeof FORMS_CFG !== 'undefined' ? FORMS_CFG : []).length;
@@ -196,7 +207,19 @@ const WebApp = (function() {
 
   function _getSelfUrl() {
     try {
-      return ScriptApp.getService().getUrl() || '';
+      const url = ScriptApp.getService().getUrl() || '';
+      // Cache para contextos no-web (funciones manuales desde IDE, triggers programados).
+      // ScriptApp.getService().getUrl() solo retorna URL dentro de un request web (doGet).
+      // Al cachear acá, cualquier llamada posterior desde otro contexto (p.ej.
+      // TuPanelTabBuilder invocado por regenerateTuPanelTab) puede leerla.
+      if (url) {
+        try {
+          PropertiesService.getScriptProperties().setProperty('webapp-url:teacher', url);
+        } catch (cacheErr) {
+          // no-op: el cache es best-effort
+        }
+      }
+      return url;
     } catch (err) {
       return '';
     }
