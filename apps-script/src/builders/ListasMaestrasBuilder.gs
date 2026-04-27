@@ -2,25 +2,30 @@
  * ListasMaestrasBuilder.gs — crea/llena SHEET-Listas-Maestras y devuelve un snapshot en memoria
  * que los builders de forms consumen para los dropdowns con `choicesFromList`.
  *
- * Pestanas: Alumnos, Docentes, Espacios, Secciones, Cooperadora, Familias.
+ * Pestañas creadas en SHEET-Listas-Maestras: Alumnos, Espacios, Secciones, Familias.
  *
- * PLACEHOLDERS — reemplazar con datos reales en pestana 👥 Docentes del Sheet template.
- * Las filas marcadas "(ejemplo)" son solo para que la directora vea como se completa.
- * La primera vez que corra "Generar todo", es esperable que borre los ejemplos y cargue
- * sus datos reales.
+ * Docentes NO se crea acá (paso 2 plan v3 baja/suplentes 2026-04-27): la fuente
+ * única de docentes es la pestaña '👥 Docentes' del Sheet template (10 cols con
+ * Estado/Token), leída por _readDocentesFromContainer() filtrando Estado=Activa.
+ *
+ * PLACEHOLDERS — DEFAULT_DOCENTES, DEFAULT_ESPACIOS, DEFAULT_SECCIONES son
+ * fallbacks usados cuando la fuente real está vacía (caso pre-siembra inicial).
+ * Las filas marcadas "(ejemplo)" son solo para que la directora vea cómo se completa.
  */
 
 const ListasMaestrasBuilder = {
 
   // PLACEHOLDERS — Pérez, Gómez, López son apellidos muy comunes en Argentina, intencionalmente
   // obvios para que nadie confunda estos 3 ejemplos con docentes reales.
+  // 2026-04-27 paso 2 plan v3 baja/suplentes: estos placeholders solo se usan
+  // como fallback cuando la pestaña 👥 Docentes del Sheet template está vacía
+  // (caso pre-siembra inicial). Después del primer setupAll, los docentes
+  // reales se leen de 👥 Docentes filtrando Estado=Activa.
   DEFAULT_DOCENTES: [
     'Perez Maria (ejemplo - borrar)',
     'Gomez Juan (ejemplo - borrar)',
     'Lopez Ana (ejemplo - borrar)'
   ],
-
-  DEFAULT_DIRECTORA: 'Directora (ejemplo - borrar)',
 
   // Espacios curriculares default = PCI Cordoba 2026.
   // Escuelas de otras provincias editan esta lista en la pestana 📖 Espacios curriculares.
@@ -46,7 +51,9 @@ const ListasMaestrasBuilder = {
   ],
 
   TAB_ALUMNOS: 'Alumnos',
-  TAB_DOCENTES: 'Docentes',
+  // TAB_DOCENTES eliminada (paso 2 plan v3 baja/suplentes 2026-04-27).
+  // La pestaña 'Docentes' plana de SHEET-Listas-Maestras dejó de existir;
+  // la fuente única ahora es '👥 Docentes' del Sheet template.
   TAB_ESPACIOS: 'Espacios',
   TAB_SECCIONES: 'Secciones',
   TAB_FAMILIAS: 'Familias',
@@ -61,8 +68,10 @@ const ListasMaestrasBuilder = {
     const ss = result.spreadsheet;
 
     this._ensureTab(ss, this.TAB_ALUMNOS, ['Apellido', 'Nombre', 'DNI', 'Seccion', 'Grado'], []);
-    this._ensureTab(ss, this.TAB_DOCENTES, ['Nombre completo', 'Cargo', 'Espacios curriculares'],
-      this.DEFAULT_DOCENTES.map(function(n) { return [n, '', '']; }));
+    // 2026-04-27 paso 2 plan v3 baja/suplentes: pestaña Docentes plana
+    // ELIMINADA. La fuente única de docentes ahora es la pestaña '👥 Docentes'
+    // del Sheet template (10 columnas con Estado/Token), leída por
+    // _readDocentesFromContainer() abajo.
     this._ensureTab(ss, this.TAB_ESPACIOS, ['Espacio curricular', 'Campo de formacion'],
       this.DEFAULT_ESPACIOS.map(function(e) { return [e, '']; }));
     this._ensureTab(ss, this.TAB_SECCIONES, ['Seccion'],
@@ -108,20 +117,78 @@ const ListasMaestrasBuilder = {
     const self = this;
     const alumnos = this._readColumn(spreadsheet, this.TAB_ALUMNOS, 2, 2); // Nombre (col 2), skip header
     const alumnosConApellido = this._readAlumnosCompletos(spreadsheet);
-    const docentes = this._readColumn(spreadsheet, this.TAB_DOCENTES, 1, 2);
+    // Paso 2 plan v3 (2026-04-27): docentes leídos de '👥 Docentes' del Sheet
+    // template (no de SHEET-Listas-Maestras pestaña Docentes plana, eliminada).
+    // Filtra Estado=Activa. La directora es una fila más en 👥 Docentes
+    // (no entidad separada). La key 'docentes_plus_directora' se ELIMINA —
+    // los 6 forms que la usaban migran a 'docentes' en el paso 3 del plan.
+    const docentes = this._readDocentesFromContainer();
     const espacios = this._readColumn(spreadsheet, this.TAB_ESPACIOS, 1, 2);
     const secciones = this._readColumn(spreadsheet, this.TAB_SECCIONES, 1, 2);
 
     return {
       alumnos: alumnosConApellido.length ? alumnosConApellido : alumnos,
       docentes: docentes.length ? docentes : self.DEFAULT_DOCENTES.slice(),
-      docentes_plus_directora: (docentes.length ? docentes : self.DEFAULT_DOCENTES.slice()).concat([self.DEFAULT_DIRECTORA]),
       docentes_plus_sin: (docentes.length ? docentes : self.DEFAULT_DOCENTES.slice()).concat(['Sin pareja pedagogica']),
       espacios: espacios.length ? espacios : self.DEFAULT_ESPACIOS.slice(),
       espacios_plus_general: (espacios.length ? espacios : self.DEFAULT_ESPACIOS.slice()).concat(['General / No aplica']),
       secciones: secciones.length ? secciones : self.DEFAULT_SECCIONES.slice(),
       secciones_plus_todas: (secciones.length ? secciones : self.DEFAULT_SECCIONES.slice()).concat(['Todas'])
     };
+  },
+
+  /**
+   * _readDocentesFromContainer — paso 2 plan v3 (2026-04-27).
+   * Lee la pestaña '👥 Docentes' del Sheet template (active spreadsheet),
+   * filtra filas con Estado=Activa, y formatea como "Apellido, Nombre".
+   *
+   * Schema esperado de '👥 Docentes' (10 cols, definido en ConfigSheetBuilder):
+   *   1=Apellido, 2=Nombre, 3=DNI, 4=Email, 5=Tipo,
+   *   6=Estado, 7=Fecha alta, 8=Fecha cambio Estado, 9=Notas, 10=Token
+   *
+   * Layout del Sheet: row 1 = headers, row 2 = helptext mergeado, row 3+ = data.
+   *
+   * Defensive: si no hay container activo (smoke test, contexto raro),
+   * retorna []. El caller usa DEFAULT_DOCENTES como fallback.
+   *
+   * Retorna: array de strings tipo "Peralta, Nelly" filtrados Estado=Activa.
+   */
+  _readDocentesFromContainer() {
+    try {
+      const container = SpreadsheetApp.getActiveSpreadsheet();
+      if (!container) return [];
+      const tab = container.getSheetByName('👥 Docentes');
+      if (!tab) return [];
+      const lastRow = tab.getLastRow();
+      // row 1 = headers, row 2 = helptext, datos desde row 3
+      if (lastRow < 3) return [];
+
+      // Leer 6 columnas (Apellido/Nombre/DNI/Email/Tipo/Estado), data rows
+      const range = tab.getRange(3, 1, lastRow - 2, 6);
+      const values = range.getValues();
+
+      return values
+        .filter(function(row) {
+          const estado = String(row[5] || '').trim();
+          return estado === 'Activa';
+        })
+        .map(function(row) {
+          const apellido = String(row[0] || '').trim();
+          const nombre = String(row[1] || '').trim();
+          if (!apellido && !nombre) return '';
+          if (!apellido) return nombre;
+          if (!nombre) return apellido;
+          return apellido + ', ' + nombre;
+        })
+        .filter(function(s) { return s.length > 0; });
+    } catch (err) {
+      if (typeof SetupLog !== 'undefined' && SetupLog.warn) {
+        SetupLog.warn('_readDocentesFromContainer fallo, fallback a DEFAULT_DOCENTES', {
+          err: String(err)
+        });
+      }
+      return [];
+    }
   },
 
   _readColumn(spreadsheet, tabName, col, startRow) {

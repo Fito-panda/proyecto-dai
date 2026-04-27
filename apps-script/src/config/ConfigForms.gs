@@ -130,7 +130,7 @@ const FORMS_CFG = [
     sheetName: 'SHEET-Seguimiento-Alumnos',
     sheetFolderPath: '06-Sheets-Maestros',
     items: [
-      { type: 'DROPDOWN', title: 'Docente que registra', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Docente que registra', required: true, choicesFromList: 'docentes' },
       { type: 'DATE', title: 'Fecha', required: true },
       { type: 'DROPDOWN', title: 'Alumno/a', required: true, choicesFromList: 'alumnos' },
       { type: 'DROPDOWN', title: 'Seccion', choicesFromList: 'secciones' },
@@ -207,7 +207,7 @@ const FORMS_CFG = [
         helpText: 'Ej: Salon principal, patio, virtual' },
       { type: 'DROPDOWN', title: 'Convocada por',
         choices: ['Directora (ejemplo)', 'Docente', 'Supervision'] },
-      { type: 'CHECKBOX', title: 'Participantes', choicesFromList: 'docentes_plus_directora' },
+      { type: 'CHECKBOX', title: 'Participantes', choicesFromList: 'docentes' },
       { type: 'SHORT_TEXT', title: 'Otros participantes',
         helpText: 'Familias, supervision, invitados externos' },
       { type: 'PARAGRAPH', title: 'Orden del dia', required: true },
@@ -234,7 +234,7 @@ const FORMS_CFG = [
     items: [
       { type: 'DATE', title: 'Fecha de registro', required: true },
       { type: 'DROPDOWN', title: 'Etapa del PIE', required: true, choices: ETAPAS_PIE },
-      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes' },
       { type: 'PARAGRAPH', title: 'Objetivo del PIE trabajado',
         helpText: 'Cual de los objetivos del PIE se esta reportando' },
       { type: 'PARAGRAPH', title: 'Acciones realizadas en el periodo', required: true },
@@ -264,7 +264,7 @@ const FORMS_CFG = [
     sheetFolderPath: '06-Sheets-Maestros',
     items: [
       { type: 'DATE', title: 'Fecha', required: true },
-      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes' },
       { type: 'CHECKBOX', title: 'Asistencia docente', choicesFromList: 'docentes',
         helpText: 'Marcar los docentes PRESENTES' },
       { type: 'SHORT_TEXT', title: 'Docentes ausentes — motivo',
@@ -470,7 +470,7 @@ const FORMS_CFG = [
         helpText: 'Descripcion o listado de lo que hay que subir' },
       { type: 'FILE_UPLOAD', title: 'Archivo con datos',
         folderPath: '05-Administracion/Pre-carga-SGE' },
-      { type: 'DROPDOWN', title: 'Preparado por', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Preparado por', required: true, choicesFromList: 'docentes' },
       { type: 'SHORT_TEXT', title: 'Observaciones' }
     ]
   },
@@ -501,7 +501,7 @@ const FORMS_CFG = [
       { type: 'DROPDOWN', title: 'Estado',
         choices: ['Borrador', 'Revisado', 'Listo para SGE', 'Subido a SGE'] },
       { type: 'SHORT_TEXT', title: 'Observaciones' },
-      { type: 'DROPDOWN', title: 'Registrado por', required: true, choicesFromList: 'docentes_plus_directora' }
+      { type: 'DROPDOWN', title: 'Registrado por', required: true, choicesFromList: 'docentes' }
     ]
   }
 
