@@ -89,7 +89,23 @@ const SetupOrchestrator = {
       }
     });
 
-    // 6.5 share automatico a emails docentes declarados en onboarding (Fase 2, continue-on-error)
+    // 6.4 NUEVO (paso 4 plan v3 baja/suplentes 2026-04-27): siembra inicial
+    // de la pestaña '👥 Docentes' del Sheet template usando los datos del
+    // onboarding (director_email + teacher_emails). Idempotente via upsertByEmail
+    // — si la fila ya existe (corrida previa de setupAll), no duplica.
+    // Resuelve el bootstrap paradox: la directora queda registrada con su token
+    // antes de que el panel admin valide tokens, así puede entrar al primer login.
+    try {
+      report.seeded = this._seedDocentesFromOnboarding();
+    } catch (err) {
+      SetupLog.warn('Siembra inicial Docentes fallo — continuando', { err: String(err) });
+      report.seeded = { seeded: 0, skipped: 0, reason: 'error', error: String(err) };
+    }
+
+    // 6.5 share automatico (paso 4 plan v3 modificado): ahora lee emails de
+    // '👥 Docentes' filtrando Estado != 'No disponible' (no de
+    // _respuestas_config.teacher_emails). teacher_emails queda como siembra
+    // inicial — se vuelca a Docentes en paso 6.4 y después se ignora.
     try {
       report.shared = this._shareYearFolderWithTeachers(ctx.yearFolder);
     } catch (err) {
@@ -134,69 +150,223 @@ const SetupOrchestrator = {
   },
 
   /**
-   * _shareYearFolderWithTeachers — agrega como editors al yearFolder los
-   * emails listados en el campo teacher_emails de _respuestas_config (Fase 2).
+   * _shareYearFolderWithTeachers — paso 4 plan v3 (2026-04-27) modificado.
    *
-   * Parsing: el campo PARAGRAPH del Form se guarda como string con saltos de
-   * linea. Acepto separadores \n, coma, punto y coma. Valido formato email
-   * básico antes de addEditor.
+   * Lee emails de la pestaña '👥 Docentes' del Sheet template filtrando
+   * Estado != 'No disponible' (incluye Activa Y Licencia — la docente con
+   * licencia mantiene acceso al Drive porque puede volver). NO lee más de
+   * _respuestas_config.teacher_emails.
+   *
+   * teacher_emails del onboarding queda como siembra inicial: el paso 6.4
+   * (_seedDocentesFromOnboarding) lo vuelca a 👥 Docentes y después se ignora.
    *
    * Retorna: { shared: [emails], skipped: [{email, error}], reason: string|null }.
    */
   _shareYearFolderWithTeachers(yearFolder) {
-    let rawConfig;
-    try {
-      rawConfig = readConfigFromSheet();
-    } catch (err) {
-      SetupLog.warn('Share automatico: no se pudo leer _respuestas_config, skipeado', {
-        err: String(err)
-      });
-      return { shared: [], skipped: [], reason: 'no-config' };
+    const containerSheet = SpreadsheetApp.getActiveSpreadsheet();
+    if (!containerSheet) {
+      SetupLog.warn('Share: no hay container active, skipeado');
+      return { shared: [], skipped: [], reason: 'no-container' };
     }
-
-    const raw = String(rawConfig.teacher_emails || '').trim();
-    if (!raw) {
-      SetupLog.info('Share automatico: teacher_emails vacio, nada que compartir');
+    const tab = containerSheet.getSheetByName('👥 Docentes');
+    if (!tab) {
+      SetupLog.warn('Share: pestaña 👥 Docentes no existe, skipeado');
+      return { shared: [], skipped: [], reason: 'no-tab' };
+    }
+    const lastRow = tab.getLastRow();
+    // row 1 = headers, row 2 = helptext, datos desde row 3
+    if (lastRow < 3) {
+      SetupLog.info('Share: 👥 Docentes vacia, nada que compartir');
       return { shared: [], skipped: [], reason: 'empty' };
     }
 
-    // Parse: split \n, coma, ; — trim, filter vacios
-    const candidates = raw.split(/[\n,;]+/)
-      .map(function(e) { return e.trim(); })
-      .filter(function(e) { return e.length > 0; });
-
+    // Lee 6 columnas (Apellido/Nombre/DNI/Email/Tipo/Estado), data rows
+    const range = tab.getRange(3, 1, lastRow - 2, 6);
+    const values = range.getValues();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const valid = candidates.filter(function(e) { return emailRegex.test(e); });
-    const invalid = candidates.filter(function(e) { return !emailRegex.test(e); });
-
-    if (invalid.length) {
-      SetupLog.warn('Emails con formato invalido, skipeados', { emails: invalid });
-    }
 
     const result = {
       shared: [],
-      skipped: invalid.map(function(e) { return { email: e, error: 'invalid-format' }; }),
+      skipped: [],
       reason: null
     };
 
-    valid.forEach(function(email) {
+    values.forEach(function(row) {
+      const email = String(row[3] || '').trim();
+      const estado = String(row[5] || '').trim();
+
+      // Filtrar No disponible (revocados — Activa y Licencia mantienen acceso)
+      if (estado === 'No disponible') return;
+      if (!email) return;
+
+      if (!emailRegex.test(email)) {
+        result.skipped.push({ email: email, error: 'invalid-format' });
+        SetupLog.warn('Share: email con formato invalido', { email: email });
+        return;
+      }
+
       try {
         yearFolder.addEditor(email);
         result.shared.push(email);
-        SetupLog.info('Share a docente OK', { email: email });
+        SetupLog.info('Share a docente OK', { email: email, estado: estado });
       } catch (err) {
         result.skipped.push({ email: email, error: String(err) });
         SetupLog.warn('Share fallo para email', { email: email, err: String(err) });
       }
     });
 
-    SetupLog.info('Share automatico terminado', {
+    SetupLog.info('Share desde 👥 Docentes terminado', {
       shared: result.shared.length,
-      skipped: result.skipped.length,
-      totalCandidates: candidates.length
+      skipped: result.skipped.length
     });
 
     return result;
+  },
+
+  /**
+   * _seedDocentesFromOnboarding — paso 4 plan v3 (2026-04-27).
+   *
+   * Siembra inicial de la pestaña '👥 Docentes' del Sheet template usando los
+   * datos del onboarding (_respuestas_config). Lee:
+   *   - director_email + director_name + director_dni → 1 fila para la directora.
+   *   - teacher_emails (PARAGRAPH multi-linea) → 1 fila por cada email valido.
+   *
+   * Cada fila se agrega solo si NO existe ya una fila con ese email en la
+   * pestaña (idempotencia via _upsertDocenteByEmail). Token UUID generado
+   * con Utilities.getUuid() para cada nueva fila. Estado inicial = 'Activa'.
+   *
+   * Defensive: si _respuestas_config no esta poblada (caso pre-onboarding
+   * o smoke test sin onboarding), retorna sin sembrar.
+   *
+   * Retorna: { seeded: int, skipped: int, reason: string|null }.
+   */
+  _seedDocentesFromOnboarding() {
+    let rawConfig;
+    try {
+      rawConfig = readConfigFromSheet();
+    } catch (err) {
+      SetupLog.warn('Siembra: no se pudo leer _respuestas_config, skipeado', {
+        err: String(err)
+      });
+      return { seeded: 0, skipped: 0, reason: 'no-config' };
+    }
+
+    const containerSheet = SpreadsheetApp.getActiveSpreadsheet();
+    if (!containerSheet) {
+      SetupLog.warn('Siembra: no hay container active, skipeado');
+      return { seeded: 0, skipped: 0, reason: 'no-container' };
+    }
+    const tab = containerSheet.getSheetByName('👥 Docentes');
+    if (!tab) {
+      SetupLog.warn('Siembra: pestaña 👥 Docentes no existe, skipeado');
+      return { seeded: 0, skipped: 0, reason: 'no-tab' };
+    }
+
+    const today = new Date();
+    const result = { seeded: 0, skipped: 0, reason: null };
+
+    // 1. Directora — siembra con sus datos del onboarding
+    const directorEmail = String(rawConfig.director_email || '').trim();
+    const directorName = String(rawConfig.director_name || '').trim();
+    const directorDni = String(rawConfig.director_dni || '').trim();
+
+    if (directorEmail && this._isValidEmail(directorEmail)) {
+      // Parse "Apellido Nombre" — primera palabra apellido, resto nombre
+      const parts = directorName.split(' ').filter(function(p) { return p.length > 0; });
+      const apellido = parts.length > 0 ? parts[0] : '';
+      const nombre = parts.slice(1).join(' ');
+
+      const wasSeeded = this._upsertDocenteByEmail(tab, [
+        apellido,
+        nombre,
+        directorDni,
+        directorEmail,
+        '', // Tipo (opcional, vacio inicial)
+        'Activa',
+        today,
+        today,
+        'Directora (sembrada del onboarding)',
+        Utilities.getUuid()
+      ]);
+      if (wasSeeded) result.seeded++;
+      else result.skipped++;
+    }
+
+    // 2. Docentes del campo teacher_emails (PARAGRAPH multi-linea)
+    const rawTeachers = String(rawConfig.teacher_emails || '').trim();
+    if (rawTeachers) {
+      const candidates = rawTeachers.split(/[\n,;]+/)
+        .map(function(e) { return e.trim(); })
+        .filter(function(e) { return e.length > 0; });
+
+      const self = this;
+      candidates.forEach(function(email) {
+        if (!self._isValidEmail(email)) {
+          result.skipped++;
+          return;
+        }
+        const wasSeeded = self._upsertDocenteByEmail(tab, [
+          '', // Apellido (vacio — Nely o ella misma lo completan despues)
+          '', // Nombre
+          '', // DNI
+          email,
+          '', // Tipo
+          'Activa',
+          today,
+          today,
+          'Sembrada del onboarding (apellido/nombre vacios — completar a mano o via "Sumar docente")',
+          Utilities.getUuid()
+        ]);
+        if (wasSeeded) result.seeded++;
+        else result.skipped++;
+      });
+    }
+
+    SetupLog.info('Siembra inicial Docentes OK', result);
+    return result;
+  },
+
+  /**
+   * _upsertDocenteByEmail — paso 4 plan v3.
+   *
+   * Append-only-if-not-exists para la pestaña '👥 Docentes'. Verifica si ya
+   * existe una fila con el mismo email (col 4). Si existe: retorna false
+   * (no append, no update — la siembra solo inicializa). Si no existe:
+   * appendRow con la fila completa (10 columnas).
+   *
+   * fila: array de 10 valores en orden del schema:
+   *   [Apellido, Nombre, DNI, Email, Tipo, Estado, Fecha alta, Fecha cambio, Notas, Token]
+   *
+   * Retorna: true si se appendió, false si ya existía (skip).
+   *
+   * Idempotencia: corrida dos veces de setupAll() NO duplica filas (fix Loop 3
+   * hallazgo 4-A — siembra duplicada).
+   */
+  _upsertDocenteByEmail(tab, fila) {
+    const targetEmail = String(fila[3] || '').trim().toLowerCase();
+    if (!targetEmail) return false;
+
+    const lastRow = tab.getLastRow();
+    if (lastRow >= 3) {
+      // Lee columna Email (col 4) desde row 3 hasta el final
+      const emails = tab.getRange(3, 4, lastRow - 2, 1).getValues();
+      for (let i = 0; i < emails.length; i++) {
+        if (String(emails[i][0] || '').trim().toLowerCase() === targetEmail) {
+          return false; // ya existe, skip
+        }
+      }
+    }
+
+    // No existe, appendRow con la fila completa (10 columnas)
+    tab.appendRow(fila);
+    return true;
+  },
+
+  /**
+   * _isValidEmail — validación regex básica (mismo regex que el share).
+   */
+  _isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
   },
 
   _flushLogSafe(fallbackSpreadsheet) {
