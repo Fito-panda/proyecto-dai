@@ -520,6 +520,7 @@ const FORMS_CFG = [
     description: 'Agregar una docente nueva a tu plantel. La directora del Panel le va a recibir un link personal.',
     folderPath: '07-Formularios',
     sheetName: 'SHEET-Sumar-Docente',
+    sheetFolderPath: '06-Sheets-Maestros',
     items: [
       { type: 'SHORT_TEXT', title: 'Apellido y nombre', required: true,
         helpText: 'Ej: Aguirre Carmen' },
@@ -540,6 +541,7 @@ const FORMS_CFG = [
     description: 'Marcar una docente como de licencia. Mantiene acceso al Drive (puede volver). NO aparece en los dropdowns de los formularios mientras esta de licencia.',
     folderPath: '07-Formularios',
     sheetName: 'SHEET-Marcar-Licencia',
+    sheetFolderPath: '06-Sheets-Maestros',
     items: [
       { type: 'DROPDOWN', title: 'Que docente esta de licencia?', required: true,
         choicesFromList: 'docentes',
@@ -554,6 +556,7 @@ const FORMS_CFG = [
     description: 'Marcar una docente como Activa de nuevo. NO desactiva al suplente (decision humana de la directora).',
     folderPath: '07-Formularios',
     sheetName: 'SHEET-Volvio-Licencia',
+    sheetFolderPath: '06-Sheets-Maestros',
     items: [
       { type: 'DROPDOWN', title: 'Que docente volvio?', required: true,
         choicesFromList: 'docentes',
@@ -568,6 +571,7 @@ const FORMS_CFG = [
     description: 'Marcar una docente como No disponible. Pierde acceso al Drive inmediatamente. La fila NO se borra (queda como historico institucional). Operacion irreversible — usar con cuidado.',
     folderPath: '07-Formularios',
     sheetName: 'SHEET-Dar-De-Baja',
+    sheetFolderPath: '06-Sheets-Maestros',
     items: [
       { type: 'DROPDOWN', title: 'A quien das de baja?', required: true,
         choicesFromList: 'docentes',
