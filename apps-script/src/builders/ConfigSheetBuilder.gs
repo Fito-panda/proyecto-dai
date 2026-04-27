@@ -179,7 +179,7 @@ const ConfigSheetBuilder = {
 
     // Hide columns marked as cfg.hiddenColumns (1-indexed). Used by 👥 Docentes
     // to ocultar la columna Token, que el sistema usa pero la directora no debe
-    // editar — evita confusión visual sin perder la dato necesario para el link.
+    // editar — evita confusión visual sin perder el dato necesario para el link.
     if (cfg.hiddenColumns && cfg.hiddenColumns.length > 0) {
       cfg.hiddenColumns.forEach(function(colNum) {
         tab.hideColumns(colNum);
