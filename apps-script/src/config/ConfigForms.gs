@@ -1,5 +1,5 @@
 /**
- * ConfigForms.gs — fuente unica de verdad para los 14 formularios.
+ * ConfigForms.gs — fuente unica de verdad para los 11 formularios productivos (F01-F09 + F13-F14) + F10/F11/F12 dormidos para forks que reactiven cooperadora.
  *
  * Convenciones:
  *   - id: codigo corto Fxx, unico. Usado como registry key.
@@ -202,15 +202,14 @@ const FORMS_CFG = [
       { type: 'SHORT_TEXT', title: 'Hora fin', helpText: 'HH:MM' },
       { type: 'DROPDOWN', title: 'Tipo de reunion', required: true,
         choices: ['Reunion de personal', 'Reunion de area', 'Reunion con familias',
-                  'Reunion con cooperadora', 'Reunion con supervision',
-                  'Reunion de pareja pedagogica', 'Otra'] },
+                  'Reunion con supervision', 'Reunion de pareja pedagogica', 'Otra'] },
       { type: 'SHORT_TEXT', title: 'Lugar',
         helpText: 'Ej: Salon principal, patio, virtual' },
       { type: 'DROPDOWN', title: 'Convocada por',
-        choices: ['Directora (ejemplo)', 'Docente', 'Cooperadora', 'Supervision'] },
+        choices: ['Directora (ejemplo)', 'Docente', 'Supervision'] },
       { type: 'CHECKBOX', title: 'Participantes', choicesFromList: 'docentes_plus_directora' },
       { type: 'SHORT_TEXT', title: 'Otros participantes',
-        helpText: 'Familias, cooperadora, supervision, invitados externos' },
+        helpText: 'Familias, supervision, invitados externos' },
       { type: 'PARAGRAPH', title: 'Orden del dia', required: true },
       { type: 'PARAGRAPH', title: 'Desarrollo', required: true,
         helpText: 'Que se discutio, punto por punto' },
@@ -324,10 +323,10 @@ const FORMS_CFG = [
     items: [
       { type: 'DATE', title: 'Fecha', required: true },
       { type: 'DROPDOWN', title: 'Emitido por', required: true,
-        choices: ['Directora (ejemplo)', 'Docente', 'Cooperadora'] },
+        choices: ['Directora (ejemplo)', 'Docente'] },
       { type: 'CHECKBOX', title: 'Destinatarios', required: true,
         choices: ['Todas las familias', 'Seccion 1', 'Seccion 2', 'Seccion 3',
-                  'Docentes', 'Cooperadora'] },
+                  'Docentes'] },
       { type: 'SHORT_TEXT', title: 'Asunto', required: true,
         helpText: 'Titulo del comunicado' },
       { type: 'DROPDOWN', title: 'Tipo', required: true,

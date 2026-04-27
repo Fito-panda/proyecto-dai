@@ -1,6 +1,6 @@
 # DAI — Apps Script backend
 
-Apps Script que crea automáticamente **14 Google Forms + estructura de Drive + 14 Sheets destino + 1 Sheet de Listas Maestras + Dashboard** en la cuenta Google que lo corra.
+Apps Script que crea automáticamente **11 Google Forms + estructura de Drive + 11 Sheets destino + 1 Sheet de Listas Maestras + Dashboard** en la cuenta Google que lo corra.
 
 ---
 
@@ -8,8 +8,8 @@ Apps Script que crea automáticamente **14 Google Forms + estructura de Drive + 
 
 1. Busca (o crea) la carpeta `Escuela/` en My Drive.
 2. Adentro crea `<AÑO>/` con 8 subcarpetas numeradas.
-3. Crea `SHEET-Listas-Maestras` con alumnos, docentes, espacios curriculares, cooperadora, familias.
-4. Crea 14 Google Forms, cada uno linkeado a su Sheet destino.
+3. Crea `SHEET-Listas-Maestras` con alumnos, docentes, espacios curriculares, familias.
+4. Crea 11 Google Forms, cada uno linkeado a su Sheet destino.
 5. Publica un panel HTML como Web App y devuelve el link público.
 6. Guarda un log de ejecución en la pestaña `📋 Estado del sistema` del Sheet de config.
 
@@ -102,7 +102,6 @@ En el IDE de Apps Script:
 - `setupAll('arranque')` — solo Form 7 (Novedades) + Form 2 (Registro de clase).
 - `setupAll('pedagogica')` — Forms 1, 2, 3, 4.
 - `setupAll('institucional')` — Forms 5, 6, 7.
-- `setupAll('cooperadora')` — Forms 10, 11, 12.
 - `setupAll('admin')` — Forms 13, 14.
 - `setupAll('comunicacion')` — Forms 8, 9.
 
@@ -146,7 +145,7 @@ apps-script/
 │   ├── config/
 │   │   ├── ConfigRoot.gs        # CFG global (lee del Sheet de config)
 │   │   ├── ConfigFolders.gs     # árbol de 8 carpetas
-│   │   └── ConfigForms.gs       # los 14 forms (fuente única de verdad)
+│   │   └── ConfigForms.gs       # los 11 forms (fuente única de verdad)
 │   ├── builders/
 │   │   ├── FolderBuilder.gs
 │   │   ├── SheetBuilder.gs

@@ -1,5 +1,5 @@
 /**
- * SmokeTests.gs — prueba rapida del pipeline sin crear los 14 forms.
+ * SmokeTests.gs — prueba rapida del pipeline sin crear los 11 forms.
  *
  * runSmokeTests() ejecuta 5 bloques:
  *   1. FormBuilder applyItem pipeline (Fase 0) — crea folder + form + sheet
@@ -180,8 +180,9 @@ function testR1FixesUnit() {
     { id: 'F12', phase: 'cooperadora' }
   ];
 
+  // 2026-04-26: cooperadora invisible por default. Sin flags = omite F10/F11/F12.
   const noFlags = PhaseFilter.filter(mockForms, 'all');
-  Guard.assert(noFlags.length === 5, 'FAIL PhaseFilter sin flags: esperaba 5, obtuvo ' + noFlags.length);
+  Guard.assert(noFlags.length === 2, 'FAIL PhaseFilter sin flags: esperaba 2 (cooperadora omitida por default), obtuvo ' + noFlags.length);
 
   const withCoop = PhaseFilter.filter(mockForms, 'all', { cooperadora_activa: true });
   Guard.assert(withCoop.length === 5, 'FAIL PhaseFilter coop=true: esperaba 5, obtuvo ' + withCoop.length);
@@ -193,7 +194,7 @@ function testR1FixesUnit() {
   Guard.assert(ids.indexOf('F11') === -1, 'FAIL PhaseFilter coop=false: F11 no debería estar');
   Guard.assert(ids.indexOf('F12') === -1, 'FAIL PhaseFilter coop=false: F12 no debería estar');
   Guard.assert(ids.indexOf('F01') !== -1 && ids.indexOf('F05') !== -1, 'FAIL PhaseFilter coop=false: F01 y F05 sí deberían estar');
-  console.log('PASS B3: PhaseFilter respeta onboardingFlags.cooperadora_activa (2/5 cuando false)');
+  console.log('PASS B3: PhaseFilter omite cooperadora por default (2/5 sin flags y con coop=false; 5/5 con coop=true explícito)');
 
   const cfg = getFoldersCfg();
   Guard.assert(Array.isArray(cfg) && cfg.length > 0, 'FAIL getFoldersCfg: no retorna array con contenido');

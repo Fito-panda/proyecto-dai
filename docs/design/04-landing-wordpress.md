@@ -62,7 +62,7 @@ Subhead:
 
 | Antes | Con DAI | Después |
 |---|---|---|
-| 📄 Word compartido que se pisa entre docentes | 📋 14 formularios con dropdowns centralizados | ✨ Todo ordenado, buscable, sin pérdidas |
+| 📄 Word compartido que se pisa entre docentes | 📋 11 formularios con dropdowns centralizados | ✨ Todo ordenado, buscable, sin pérdidas |
 | Actas en cuaderno que después hay que pasar | Registros que se guardan solos en una planilla | Reportes automáticos para supervisión |
 | Planificaciones en WhatsApp que se pierden | Planilla por semana, todas en un lugar | Seguimiento real del PIE |
 
@@ -77,9 +77,9 @@ Subhead:
 
 [Botón] → Ver los 7 pasos detallados
 
-### Sección 4 — "Los 14 formularios" (grid visual)
+### Sección 4 — "Los 11 formularios" (grid visual)
 
-**Título:** *14 formularios cubren todo el día a día de una escuela rural.*
+**Título:** *11 formularios cubren todo el día a día de una escuela rural.*
 
 Grid de 3 columnas, cada card con ícono + nombre + descripción corta:
 
@@ -92,9 +92,6 @@ Grid de 3 columnas, cada card con ícono + nombre + descripción corta:
 - 🌅 Novedades diarias
 - 📢 Comunicado
 - ✍️ Autorización familia
-- 💵 Caja cooperadora
-- 📒 Acta cooperadora
-- 🛒 Solicitud de compra
 - 📤 Pre-carga SGE
 - 🗂️ Legajo interno
 
@@ -172,7 +169,7 @@ Cuando haya 3+ testimonios, arrancar con carrusel o grid de 3.
 
 ### Paso 6 — Elegí qué formularios activar
 
-- **Qué hacés:** pestaña "✅ Formularios". Tildás los 14 que quieras. No hace falta activar todos — por ejemplo si no tenés cooperadora, desactivás esos 3.
+- **Qué hacés:** pestaña "✅ Formularios". Tildás los 11 que quieras. No hace falta activar todos — desactivá los que no apliquen a tu escuela.
 
 ### Paso 7 — Generá y compartí
 
@@ -209,7 +206,7 @@ Cuando haya 3+ testimonios, arrancar con carrusel o grid de 3.
 >
 > ### Qué hace DAI exactamente
 >
-> - Crea 14 formularios de Google en tu Drive (los que vos activaste).
+> - Crea 11 formularios de Google en tu Drive (los que vos activaste).
 > - Crea una carpeta "Escuela" con subcarpetas ordenadas por tipo de material.
 > - Crea planillas donde se guardan las respuestas de los formularios.
 >

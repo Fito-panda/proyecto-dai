@@ -4,7 +4,7 @@
 
 ## El problema en 3 frases
 
-1. Las escuelas primarias rurales argentinas gestionan lo informal (planificaciones, actas, novedades, seguimiento de alumnos, cooperadora) con un **Word compartido en Google Drive** que se pisa entre docentes y pierde información.
+1. Las escuelas primarias rurales argentinas gestionan lo informal (planificaciones, actas, novedades, seguimiento de alumnos) con un **Word compartido en Google Drive** que se pisa entre docentes y pierde información.
 2. Los sistemas oficiales (SGE Córdoba, SInIDE Nacional) cubren solo lo formal (matrícula, calificaciones) y son cerrados sin API pública.
 3. Las soluciones edtech disponibles apuntan a colegios grandes con Google Workspace pago y no sirven para una escuela rural con Gmail gratis y celulares básicos.
 
@@ -28,7 +28,7 @@ Corolario: el producto tiene que sentirse como "un Google Form con una pestaña 
 
 2. **El warning "app no verificada" de Google** es la principal fricción técnica conocida. Tiene solución conocida (patrón Apps Script Library verificada), pero la verificación tarda 2-4 semanas. **Resuelto con nota de prueba social entre directoras** — canal de adopción boca a boca reemplaza sello de Google.
 
-3. **Cuota dura de 6 minutos** por ejecución de Apps Script. Generar 14 forms + sheets + carpetas puede rozar el límite. **Mitigación:** fragmentar "Generar sistema" en 3-4 pasos visibles.
+3. **Cuota dura de 6 minutos** por ejecución de Apps Script. Generar 11 forms + sheets + carpetas puede rozar el límite. **Mitigación:** fragmentar "Generar sistema" en 3-4 pasos visibles.
 
 4. **SGE Córdoba no tiene API pública.** DAI vive **al lado**, no pretende integrarse ni reemplazar. Posicionamiento político: no compite con lo oficial del Ministerio.
 
@@ -36,4 +36,4 @@ Corolario: el producto tiene que sentirse como "un Google Form con una pestaña 
 
 ### Gap del research sin cerrar
 
-- Cuota específica de `FormApp.create()` en Gmail gratis (no documentada). **Se cierra con test empírico en la escuela piloto** — generar los 14 forms y medir tiempo + fallos.
+- Cuota específica de `FormApp.create()` en Gmail gratis (no documentada). **Se cierra con test empírico en la escuela piloto** — generar los 11 forms y medir tiempo + fallos.

@@ -56,11 +56,10 @@ const PHASE_LABELS = {
   pedagogica:    { icon: '📚', label: 'Pedagógica' },
   institucional: { icon: '🏫', label: 'Institucional' },
   comunicacion:  { icon: '💬', label: 'Comunicación' },
-  cooperadora:   { icon: '🤝', label: 'Cooperadora' },
   admin:         { icon: '📊', label: 'Administración' }
 };
 
-const PHASE_ORDER = ['pedagogica', 'institucional', 'comunicacion', 'cooperadora', 'admin'];
+const PHASE_ORDER = ['pedagogica', 'institucional', 'comunicacion', 'admin'];
 
 const WebApp = (function() {
 
@@ -89,8 +88,7 @@ const WebApp = (function() {
       ctx.cfgSummary = {
         formsActive: activeForms,
         formsTotal: totalForms,
-        sectionCount: Number(cfg.section_count) || 5,
-        cooperadoraActive: _parseBool(cfg.cooperadora_activa)
+        sectionCount: Number(cfg.section_count) || 5
       };
     } else {
       ctx.formsByPhase = _getFormsByPhase();
@@ -107,15 +105,6 @@ const WebApp = (function() {
       Logger.log('[WebApp] _readCfgSafe fallback: ' + (err && err.message));
     }
     return {};
-  }
-
-  function _parseBool(v) {
-    if (v === true) return true;
-    if (typeof v === 'string') {
-      const s = v.trim().toLowerCase();
-      return s === 'si' || s === 'sí' || s === 'yes' || s === 'true' || s === '1';
-    }
-    return false;
   }
 
   function _getSheetLinks(year) {
@@ -153,14 +142,12 @@ const WebApp = (function() {
     return byPhase;
   }
 
-  // Aplica PhaseFilter con los flags leídos del onboarding (cooperadora_activa, etc.)
-  // para que los paneles respeten el mismo filtrado que setupAll() hace al crear los
-  // artefactos. Si cooperadora_activa=false, los 3 forms de cooperadora no aparecen.
+  // 2026-04-26: cooperadora invisible por default (decisión de scope: la maneja
+  // la comisión de padres por afuera del sistema). Los paneles respetan el mismo
+  // filtrado que setupAll() hace al crear los artefactos.
   function _filterByOnboardingFlags(formsCfg) {
-    const cfg = _readCfgSafe();
-    const flags = { cooperadora_activa: _parseBool(cfg.cooperadora_activa) };
     if (typeof PhaseFilter !== 'undefined' && PhaseFilter.filter) {
-      return PhaseFilter.filter(formsCfg, 'all', flags);
+      return PhaseFilter.filter(formsCfg, 'all', {});
     }
     return formsCfg.slice();
   }

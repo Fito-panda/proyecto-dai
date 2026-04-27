@@ -77,12 +77,6 @@ const ConfigSheetBuilder = {
       helptext: 'Espacios oficiales del PCI. "pce_alineado": true | false (Proyecto Curricular del Espacio al dia). Defaults del PCI 2026 Cordoba se cargaran en Fase 2.5 (ver destilado PCI+PIE).'
     },
     {
-      name: '🤝 Cooperadora',
-      kind: 'table',
-      headers: ['concepto', 'fecha', 'ingreso', 'egreso', 'saldo', 'comprobante'],
-      helptext: 'Registro de movimientos de Cooperadora escolar. "saldo" acumulativo — la formula se cargara en Fase 2.5. "comprobante": link a PDF en Drive o numero de recibo.'
-    },
-    {
       name: '👨\u200d👩\u200d👧 Familias',
       kind: 'table',
       headers: ['alumno', 'vinculo', 'nombre_contacto', 'telefono', 'email', 'autorizado_retirar'],
@@ -92,7 +86,7 @@ const ConfigSheetBuilder = {
       name: '✅ Formularios',
       kind: 'table',
       headers: ['form', 'url', 'creado', 'respuestas'],
-      helptext: 'Catalogo de los 14 Forms del ciclo escolar. setupAll() popula esta pestana automaticamente tras crear cada Form. "respuestas": contador manual o via funcion de actualizacion.'
+      helptext: 'Catalogo de los 11 Forms del ciclo escolar. setupAll() popula esta pestana automaticamente tras crear cada Form. "respuestas": contador manual o via funcion de actualizacion.'
     }
   ],
 

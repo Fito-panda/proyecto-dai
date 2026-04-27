@@ -51,12 +51,6 @@ function _staticFolderSubtree() {
       { path: 'Comunicados' },
       { path: 'Autorizaciones' },
       { path: 'Plantillas' }
-    ]},
-    { path: '04-Cooperadora', children: [
-      { path: 'Actas-Cooperadora' },
-      { path: 'Comprobantes' },
-      { path: 'Solicitudes' },
-      { path: 'Informes-Mensuales' }
     ]}
   ];
 }

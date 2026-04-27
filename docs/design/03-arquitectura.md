@@ -25,7 +25,7 @@ Bandera identitaria útil al pitchear a Ministerio/gobierno (programas tipo Escu
 
 ### D2 — Modular con activación en config
 
-- 14 forms base en el código.
+- 11 forms base en el código.
 - Pestaña `✅ Formularios` del Sheet de config con tabla de activación (ID, nombre, descripción, ☑/☐ activar).
 - Al correr "Generar", solo se crean los tildados.
 - Desactivar form ya creado: persiste en Drive, pero el panel HTML deja de mostrarlo.
@@ -52,7 +52,7 @@ apps-script/                             # codigo Apps Script
 │   ├── config/
 │   │   ├── ConfigRoot.gs                # lee CFG del Sheet de config (nombre escuela, año, etc.)
 │   │   ├── ConfigFolders.gs             # arbol fijo de 8 carpetas numeradas
-│   │   └── ConfigForms.gs               # array FORMS_CFG con los 14 forms (estructura declarativa)
+│   │   └── ConfigForms.gs               # array FORMS_CFG con los 11 forms (estructura declarativa)
 │   ├── builders/
 │   │   ├── FolderBuilder.gs             # getOrCreate carpetas, reentrante
 │   │   ├── SheetBuilder.gs              # getOrCreate sheets + tabs
@@ -88,7 +88,7 @@ El Sheet que cada escuela copia. Pestañas (con protección + validaciones donde
 | `📚 Secciones y grados` | Editable. Default 3 secciones plurigrado pero escalable |
 | `📖 Espacios curriculares` | Editable. Default PCI Córdoba 2026 |
 | `🔧 Modalidades` | Default: Curricular / Pareja pedagógica / Tutoría / Proyecto Institucional |
-| `✅ Formularios` | Tabla 14 forms con checkbox de activación |
+| `✅ Formularios` | Tabla 11 forms con checkbox de activación |
 | `📋 Estado del sistema` | Log de ejecución generado por el script |
 | `🌱 DAI` | Menú custom (no pestaña, menú del Sheet): Generar todo / Actualizar listas / Regenerar panel / Ver panel / Reiniciar registry |
 
@@ -148,10 +148,10 @@ El Sheet que cada escuela copia. Pestañas (con protección + validaciones donde
 ### Fase 2 — Config lectura desde Sheet
 - `ConfigSheetBuilder.gs` crea/actualiza las pestañas del Sheet
 - `ConfigRoot.gs` lee valores del Sheet (CFG dinámico, no hardcoded)
-- Todos los dropdowns de los 14 forms leen de pestañas del Sheet
+- Todos los dropdowns de los 11 forms leen de pestañas del Sheet
 
 ### Fase 3 — Orchestrator + WebApp
-- `SetupOrchestrator.run()` completo con los 14 forms activables
+- `SetupOrchestrator.run()` completo con los 11 forms activables
 - `WebApp.gs + PanelDirectora.html + PanelDocentes.html` con ruteo por `?role=admin`
 - `deployWebApp()` que publica como web app
 

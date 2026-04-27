@@ -129,7 +129,7 @@ const cfg = readConfigSheet('⚙️ Configuración');
 
 ## 📑 Pestaña 3 — `👥 Docentes`
 
-**Propósito:** nómina docente. Alimenta el dropdown `docentes` y variantes (`docentes_plus_directora`, etc.) en los 14 forms.
+**Propósito:** nómina docente. Alimenta el dropdown `docentes` y variantes (`docentes_plus_directora`, etc.) en los 11 forms.
 
 **Headers (row 1, frozen):** 12 columnas.
 
@@ -202,7 +202,7 @@ Tres secciones es el caso típico de escuela rural argentina (1°-2° / 3°-4° 
 
 ## 📑 Pestaña 5 — `📖 Espacios curriculares`
 
-**Propósito:** espacios curriculares oficiales. Alimenta dropdown `espacios` y `espacios_plus_general` (14 forms).
+**Propósito:** espacios curriculares oficiales. Alimenta dropdown `espacios` y `espacios_plus_general` (11 forms).
 
 **Headers (row 1, frozen):**
 
@@ -279,7 +279,7 @@ Default de arranque = marco curricular oficial Córdoba 2026. Escuelas de otras 
 | # | ID | Nombre | Descripción | Fase | Activar | URL pública (auto) | Sheet destino (auto) |
 |---|---|---|---|---|---|---|---|
 
-**Contenido sembrado (14 forms base + Form 15 opcional desactivado por default):**
+**Contenido sembrado (11 forms base + Form 15 opcional desactivado por default):**
 
 | ID | Nombre | Descripción | Fase | Activar | URL pública | Sheet destino |
 |---|---|---|---|---|---|---|
@@ -292,9 +292,6 @@ Default de arranque = marco curricular oficial Córdoba 2026. Escuelas de otras 
 | F07 | Novedades diarias | 1 vez por día al abrir la escuela | Institucional | ☑ | — | — |
 | F08 | Autorización para familias | Plantilla para copiar por actividad | Comunicación | ☑ | — | — |
 | F09 | Comunicado / Circular | Registro interno de cada comunicado | Comunicación | ☑ | — | — |
-| F10 | Ingreso / Egreso de fondos | Libro de caja cooperadora | Cooperadora | ☑ | — | — |
-| F11 | Acta de reunión de cooperadora | Después de cada reunión | Cooperadora | ☑ | — | — |
-| F12 | Solicitud de compra / gasto | Pedido a cooperadora | Cooperadora | ☑ | — | — |
 | F13 | Pre-carga SGE | Staging de datos al SGE provincial | Admin | ☑ | — | — |
 | F14 | Legajo interno | Ingreso o actualización de legajo | Admin | ☑ | — | — |
 | F15 | Evidencia para Supervisión | Carpeta inspectora en un solo lugar | Institucional | ☐ | — | — |
@@ -310,7 +307,6 @@ Default de arranque = marco curricular oficial Córdoba 2026. Escuelas de otras 
   - Pedagógica → `#E8F5E9` (verde muy claro)
   - Institucional → `#FFF4E5` (naranja muy claro)
   - Comunicación → `#E3F2FD` (azul muy claro)
-  - Cooperadora → `#FCE4EC` (rosa muy claro)
   - Admin → `#F3E5F5` (violeta muy claro)
 - `URL pública` → fondo `#FFF4C5` (amarillo "calculado, no editar").
 

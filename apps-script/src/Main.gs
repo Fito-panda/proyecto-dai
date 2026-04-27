@@ -42,7 +42,7 @@ function installFormalFormTriggers() {
 }
 
 /**
- * Corre todo. Crea/actualiza Drive tree + Listas Maestras + los 14 forms + sheets + dashboard vacio.
+ * Corre todo. Crea/actualiza Drive tree + Listas Maestras + los 11 forms + sheets + dashboard vacio.
  * Es idempotente: correr dos veces no duplica.
  * Se ejecuta AUTO desde onFormSubmitHandler si confirm_generate='Si',
  * o manualmente desde el IDE si la directora eligió 'No'.
@@ -79,7 +79,7 @@ function runAdmin() {
 }
 
 /**
- * Re-aplica los items de los 14 forms usando el snapshot actual de SHEET-Listas-Maestras.
+ * Re-aplica los items de los 11 forms usando el snapshot actual de SHEET-Listas-Maestras.
  * Usar cuando Coordinadora edita alumnos/docentes/espacios y hay que refrescar los dropdowns.
  */
 function refreshListasMaestras() {
@@ -119,7 +119,7 @@ function regenerateTuPanelTab() {
 }
 
 /**
- * Imprime las URLs publicas de los 14 forms registrados. Util para compartir con docentes.
+ * Imprime las URLs publicas de los 11 forms registrados. Util para compartir con docentes.
  */
 function printFormUrls() {
   const registry = PropertiesRegistry.all();

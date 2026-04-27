@@ -2,7 +2,7 @@
 
 **Sistema gratuito de formularios digitales para escuelas rurales argentinas.**
 
-Un template de Google Sheet con Apps Script embebido. Cualquier escuela hace "Archivo → Crear una copia", completa 3 pestañas con sus datos, corre un menú, y tiene un sistema completo: 14 formularios digitales + estructura Drive + panel público para docentes, accesible desde cualquier celular.
+Un template de Google Sheet con Apps Script embebido. Cualquier escuela hace "Archivo → Crear una copia", completa 3 pestañas con sus datos, corre un menú, y tiene un sistema completo: 11 formularios digitales + estructura Drive + panel público para docentes, accesible desde cualquier celular.
 
 Cero-programación. Cero-costo. Cero-Workspace-pago. Gmail personal alcanza.
 
@@ -22,9 +22,9 @@ Cero-programación. Cero-costo. Cero-Workspace-pago. Gmail personal alcanza.
 
 En una sola corrida, DAI genera en tu Google Drive:
 
-- **14 Google Forms** cubriendo planificación, registro de clase, seguimiento de alumnos, evaluación, actas, novedades diarias, comunicados, autorizaciones para familias, caja de cooperadora, pre-carga SGE, legajos.
+- **11 Google Forms** cubriendo planificación, registro de clase, seguimiento de alumnos, evaluación, actas, novedades diarias, comunicados, autorizaciones para familias, pre-carga SGE, legajos.
 - **Estructura de carpetas** organizada por año y tipo de material (8 carpetas numeradas).
-- **15 Sheets de respuestas**, una por formulario, con las respuestas de los docentes cargándose automáticamente.
+- **Sheets de respuestas**, una por formulario, con las respuestas de los docentes cargándose automáticamente.
 - **Panel HTML público** con un link que se comparte por WhatsApp — los docentes acceden desde el celular a todos los formularios.
 - **Dashboard vacío** donde la directora pega fórmulas `IMPORTRANGE` para ver resúmenes.
 

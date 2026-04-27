@@ -102,7 +102,7 @@ function _buildHtmlBody(cfg, urls) {
       '<div style="background:#f5f5f7;border-radius:10px;padding:16px;margin:20px 0;">' +
         '<p style="margin:0 0 8px;"><strong>2. Panel para las maestras</strong> (compartí por WhatsApp)</p>' +
         '<p style="margin:0 0 8px;"><a href="' + teacherUrl + '" style="color:#2b4a6f;">' + teacherUrl + '</a></p>' +
-        '<p style="margin:0;font-size:14px;color:#666;">Copiá este link al grupo de docentes. Desde el celular acceden a los 14 formularios.</p>' +
+        '<p style="margin:0;font-size:14px;color:#666;">Copiá este link al grupo de docentes. Desde el celular acceden a los 11 formularios.</p>' +
       '</div>' +
 
       '<p style="margin-top:24px;">Si el sistema te adjuntó un <strong>PDF de 2 páginas</strong>, imprimí la página 2 y pegala en la sala de maestras — tiene el QR del Panel Docentes listo para escanear.</p>' +

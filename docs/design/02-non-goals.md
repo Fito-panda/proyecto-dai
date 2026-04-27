@@ -17,7 +17,7 @@
 - ❌ **No soporte para nivel secundario.** Solo primaria rural.
 - ❌ **No multi-idioma.** Solo español argentino rioplatense.
 - ❌ **No analytics ni dashboards ejecutivos.** El "dashboard de la directora" es un Google Sheet con fórmulas `IMPORTRANGE` que ella pega a mano — no producto.
-- ❌ **No creación de forms custom desde la directora en v1.** El producto trae 14 forms base; la escuela activa/desactiva en config, pero no crea forms propios. Queda para futuro si emerge demanda real.
+- ❌ **No creación de forms custom desde la directora en v1.** El producto trae 11 forms base; la escuela activa/desactiva en config, pero no crea forms propios. Queda para futuro si emerge demanda real.
 - ❌ **No histórico con audit log.** Quién-cambió-qué-cuándo no se registra. Versionado light con columnas `Estado / Desde / Hasta` en pestaña Docentes, sin log de cambios.
 - ❌ **No envío automático de emails.** Form 9 (Comunicado) registra el comunicado en Sheet; quien lo manda por WhatsApp/email es un humano.
 - ❌ **No alertas push** (Slack/WhatsApp/SMS). Las alertas se resuelven con formato condicional en Sheet.
@@ -34,7 +34,7 @@
 
 ## Lo que sí hace (reafirmación del scope v1)
 
-- ✅ 14 forms estructurados cubriendo: pedagógica (4), institucional (3), comunicación (2), cooperadora (3), administración (2).
+- ✅ 11 forms estructurados cubriendo: pedagógica (4), institucional (3), comunicación (2), administración (2). (Cooperadora queda como código dormido para forks que la reactiven — la maneja la comisión de padres por afuera del sistema.)
 - ✅ Pestañas de config editables por la directora: docentes (con estado Activo/Licencia/Suplente/Baja), secciones, espacios curriculares, modalidades, activación de forms.
 - ✅ Panel HTML público con URLs de los forms para compartir por WhatsApp.
 - ✅ Estructura de carpetas Drive organizada por año.

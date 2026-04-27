@@ -176,7 +176,6 @@
     <h2>📋 Estado de tu configuración</h2>
     <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.formsActive ?> formularios activos<? if (ctx.cfgSummary.formsTotal && ctx.cfgSummary.formsTotal !== ctx.cfgSummary.formsActive) { ?><span style="color:#888;font-size:14px;">&nbsp;(de <?= ctx.cfgSummary.formsTotal ?> disponibles)</span><? } ?></div>
     <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.sectionCount ?> secciones configuradas</div>
-    <div class="status-row"><span class="check"><?= ctx.cfgSummary.cooperadoraActive ? '✓' : '—' ?></span> Cooperadora <?= ctx.cfgSummary.cooperadoraActive ? 'activa' : 'inactiva' ?></div>
   </section>
 
   <section>

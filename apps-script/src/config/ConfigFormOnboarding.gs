@@ -2,7 +2,7 @@
  * ConfigFormOnboarding.gs — schema del Form de onboarding DAI.
  * Fase 2 del plan v9 implementada 2026-04-20 por FORJA2.
  *
- * Este Form es ESPECIAL — no es parte de los 14 Forms del ciclo escolar
+ * Este Form es ESPECIAL — no es parte de los 11 Forms del ciclo escolar
  * (FORMS_CFG en ConfigForms.gs). Se ejecuta una sola vez al inicio del año:
  *   1. La directora abre el Sheet container-bound (copia del Template).
  *   2. Lee la pestaña '👋 Arranque' que tiene el link a este Form.
@@ -29,7 +29,7 @@ const ONBOARDING_FORM_CFG = {
   id: 'F00',
   phase: 'onboarding',
   title: 'DAI — Onboarding de la escuela',
-  description: 'Completá una vez al inicio del año (menos de 3 minutos). Al enviar este formulario se configura automáticamente todo el sistema DAI: carpetas Drive, los 14 formularios del ciclo, y share con los docentes. Podés editar respuestas después si algo cambia.',
+  description: 'Completá una vez al inicio del año (menos de 3 minutos). Al enviar este formulario se configura automáticamente todo el sistema DAI: carpetas Drive, los 11 formularios del ciclo, y share con los docentes. Podés editar respuestas después si algo cambia.',
 
   // folderPath: NO aplica — este Form vive linkeado al Sheet container-bound,
   // no dentro de la carpeta 07-Formularios del ciclo.
@@ -143,18 +143,6 @@ const ONBOARDING_FORM_CFG = {
     },
 
     // ========================================================================
-    // F. Cooperadora (condiciona creación de Forms F10-F12)
-    // ========================================================================
-
-    {
-      type: 'MULTIPLE_CHOICE',
-      title: 'cooperadora_activa',
-      required: true,
-      choices: ['Si', 'No'],
-      helpText: '¿La escuela tiene Cooperadora activa este año? Si respondés "Si", setupAll crea los Forms F10-F12 (caja, actas, solicitudes). Si "No", los omite.'
-    },
-
-    // ========================================================================
     // G. PEI (opcional)
     // ========================================================================
 
@@ -187,7 +175,7 @@ const ONBOARDING_FORM_CFG = {
         'Si, generá todo ahora',
         'No, solo guardá la config (corro setupAll después manualmente)'
       ],
-      helpText: 'Si elegís "Si", al enviar este form se ejecuta setupAll() automáticamente (crea carpetas Drive, los 14 Forms del ciclo, y share con docentes). Si elegís "No", los datos quedan guardados en _respuestas_config pero setupAll NO corre — podés ejecutarlo manualmente después desde el IDE.'
+      helpText: 'Si elegís "Si", al enviar este form se ejecuta setupAll() automáticamente (crea carpetas Drive, los 11 Forms del ciclo, y share con docentes). Si elegís "No", los datos quedan guardados en _respuestas_config pero setupAll NO corre — podés ejecutarlo manualmente después desde el IDE.'
     }
 
   ]

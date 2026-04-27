@@ -49,7 +49,6 @@ const ListasMaestrasBuilder = {
   TAB_DOCENTES: 'Docentes',
   TAB_ESPACIOS: 'Espacios',
   TAB_SECCIONES: 'Secciones',
-  TAB_COOPERADORA: 'Cooperadora',
   TAB_FAMILIAS: 'Familias',
 
   /**
@@ -68,7 +67,6 @@ const ListasMaestrasBuilder = {
       this.DEFAULT_ESPACIOS.map(function(e) { return [e, '']; }));
     this._ensureTab(ss, this.TAB_SECCIONES, ['Seccion'],
       this.DEFAULT_SECCIONES.map(function(s) { return [s]; }));
-    this._ensureTab(ss, this.TAB_COOPERADORA, ['Nombre', 'Rol'], []);
     this._ensureTab(ss, this.TAB_FAMILIAS, ['Alumno', 'Padre/Madre/Tutor', 'Telefono', 'Email'], []);
 
     SheetBuilder.removeDefaultTabIfPossible(ss);

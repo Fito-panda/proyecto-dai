@@ -5,10 +5,14 @@
  * 'arranque' es un conjunto explicito (F07 + F02) para quitar el dolor del Word compartido.
  *
  * R1 2026-04-21 (fix B3 = deuda D7): acepta un 2º parámetro `onboardingFlags`
- * con booleans que modulan el resultado. Hoy:
- *   - onboardingFlags.cooperadora_activa === false → omite forms phase='cooperadora'
- *     (F10, F11, F12). Antes se creaban siempre aunque la directora respondiera
- *     "No" en el Form.
+ * con booleans que modulan el resultado.
+ *
+ * 2026-04-26 — cooperadora invisible por default (decisión de scope: la maneja
+ * la comisión de padres por afuera del sistema, no la directora):
+ *   - onboardingFlags.cooperadora_activa !== true → omite forms phase='cooperadora'
+ *     (F10, F11, F12). Default = omitir. Solo se crean si caller pasa el flag
+ *     explícitamente como `true` (vía edición de código por un programador que
+ *     reactive cooperadora en su fork MIT).
  *
  * Extensible: futuros flags pueden agregarse acá (ej. pei_activo → omitir F06).
  */
@@ -43,12 +47,14 @@ const PhaseFilter = {
     }
 
     // Paso 2: filtrado contextual por flags del onboarding (R1 fix B3).
-    if (onboardingFlags.cooperadora_activa === false) {
+    // 2026-04-26: cooperadora invisible por default. Solo se crea si el flag
+    // viene explícitamente como true. undefined/null/false/cualquier-otra-cosa → omite.
+    if (onboardingFlags.cooperadora_activa !== true) {
       const beforeCount = filtered.length;
       filtered = filtered.filter(function(c) { return c.phase !== 'cooperadora'; });
       const removed = beforeCount - filtered.length;
       if (removed > 0 && typeof SetupLog !== 'undefined' && SetupLog.info) {
-        SetupLog.info('PhaseFilter: cooperadora_activa=false → ' + removed + ' forms omitidos', {
+        SetupLog.info('PhaseFilter: cooperadora omitida (flag !== true) → ' + removed + ' forms omitidos', {
           phase: phase,
           omitted_count: removed
         });

@@ -14,7 +14,7 @@
  *   - CFG expuesto es un Proxy: primera lectura dispara readConfigFromSheet()
  *     y cachea el resultado en _cfgCache para toda la ejecución del script.
  *   - API preserva CFG.YEAR, CFG.SCHOOL_NAME, CFG.LOCATION (Fase 1) + agrega
- *     CFG.DIRECTOR_EMAIL, CFG.SECTION_COUNT, CFG.COOPERADORA_ACTIVA, etc.
+ *     CFG.DIRECTOR_EMAIL, CFG.SECTION_COUNT, CFG.PEI_ACTIVO, etc.
  *
  * Referencias canónicas:
  *   - Plan v9 Fase 1: líneas 342-356 de plan-v1-publico-fases-1-2-3-2026-04-20.md
@@ -28,12 +28,11 @@ const CFG_DEFAULTS = Object.freeze({
   PARENT_FOLDER_NAME: 'Escuela',
   MASTER_LISTS_SHEET_NAME: 'SHEET-Listas-Maestras',
   DASHBOARD_SHEET_NAME: 'DASHBOARD-General',
-  DASHBOARD_TABS: ['Resumen del dia', 'Semana en curso', 'PIE - Estado', 'Cooperadora', 'Alertas'],
+  DASHBOARD_TABS: ['Resumen del dia', 'Semana en curso', 'PIE - Estado', 'Alertas'],
 
   // Defaults conservadores para los campos dinámicos (R1 fix B2).
   // Si _respuestas_config no tiene el campo o está vacío, se usa el default.
   SECTION_COUNT_DEFAULT: 3,
-  COOPERADORA_ACTIVA_DEFAULT: true,  // conservador: mejor crear F10-F12 y que sobren que que falten
   PEI_ACTIVO_DEFAULT: false
 });
 
@@ -164,9 +163,6 @@ function _loadCFG() {
     TEACHER_EMAILS: String(fromSheet.teacher_emails || ''),  // string multi-linea del PARAGRAPH
 
     // Flags booleanos (parsed de "Si"/"No")
-    COOPERADORA_ACTIVA: fromSheet.cooperadora_activa !== undefined && fromSheet.cooperadora_activa !== ''
-      ? _parseSiNo(fromSheet.cooperadora_activa)
-      : CFG_DEFAULTS.COOPERADORA_ACTIVA_DEFAULT,
     PEI_ACTIVO: fromSheet.pei_activo !== undefined && fromSheet.pei_activo !== ''
       ? _parseSiNo(fromSheet.pei_activo)
       : CFG_DEFAULTS.PEI_ACTIVO_DEFAULT,

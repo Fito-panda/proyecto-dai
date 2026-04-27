@@ -58,11 +58,10 @@ const SetupOrchestrator = {
     }
 
     // 6. forms (continue-on-error)
-    // R1 fix B3 (=D7): PhaseFilter recibe onboardingFlags. Si cooperadora_activa=false,
-    // omite F10-F12. Valor viene de CFG.COOPERADORA_ACTIVA (parsed "Si"/"No" → boolean).
-    const onboardingFlags = {
-      cooperadora_activa: CFG.COOPERADORA_ACTIVA
-    };
+    // 2026-04-26: cooperadora invisible por default (decisión de scope: la maneja
+    // la comisión de padres por afuera del sistema). PhaseFilter omite forms
+    // phase='cooperadora' a menos que un caller pase explícitamente cooperadora_activa=true.
+    const onboardingFlags = {};
     const queue = PhaseFilter.filter(FORMS_CFG, phase, onboardingFlags);
     SetupLog.info('Forms a procesar en esta fase: ' + queue.length, {
       ids: queue.map(function(f) { return f.id; }),

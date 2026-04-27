@@ -25,7 +25,7 @@
  * Orden operativo al instalar el sistema:
  *   1. bootstrapTemplate() (Fase 2) → crea Template + Form onboarding.
  *   2. Directora envía Form onboarding → trigger dispara setupAll() → crea los
- *      14 Forms del ciclo + carpetas.
+ *      11 Forms del ciclo + carpetas.
  *   3. Fito corre buildAllDocTemplates() → crea 9 templates Google Docs.
  *   4. Fito corre installFormalFormTriggers() (wrapper en Main.gs) → instala
  *      9 triggers apuntando a onFormalFormSubmit.
@@ -238,7 +238,7 @@ const FormalFormsTriggerManager = {
     if (!formEntry || !formEntry.id) {
       throw new Error(
         'Form ' + formId + ' no está en registry (key "form:' + formId + '"). ' +
-        'Correr setupAll() primero para crear los 14 Forms del ciclo.'
+        'Correr setupAll() primero para crear los 11 Forms del ciclo.'
       );
     }
 
