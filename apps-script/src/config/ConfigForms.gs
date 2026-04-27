@@ -503,6 +503,79 @@ const FORMS_CFG = [
       { type: 'SHORT_TEXT', title: 'Observaciones' },
       { type: 'DROPDOWN', title: 'Registrado por', required: true, choicesFromList: 'docentes' }
     ]
+  },
+
+  // ============================================================================
+  // Paso 8 plan v3 (2026-04-27): 4 forms operativos del Panel Directora.
+  // phase='operativa' — PhaseFilter NO los muestra en el Panel Docentes (los 14
+  // botones de las maestras). Solo accesibles via seccion "Mis docentes" del
+  // PanelDirectora (paso 17). Los handlers (paso 9 OnSubmitDispatcher + pasos
+  // 10-13) leen e.range.getSheet().getName() para enrutar segun el form origen.
+  // ============================================================================
+
+  {
+    id: 'F-baja-01',
+    phase: 'operativa',
+    title: 'Sumar una docente',
+    description: 'Agregar una docente nueva a tu plantel. La directora del Panel le va a recibir un link personal.',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Sumar-Docente',
+    items: [
+      { type: 'SHORT_TEXT', title: 'Apellido y nombre', required: true,
+        helpText: 'Ej: Aguirre Carmen' },
+      { type: 'SHORT_TEXT', title: 'DNI',
+        helpText: 'Opcional. Lo podes completar despues si no lo tenes a mano.' },
+      { type: 'SHORT_TEXT', title: 'Email', required: true,
+        helpText: 'La cuenta Google que va a usar para responder formularios y entrar al panel.' },
+      { type: 'DROPDOWN', title: 'Tipo',
+        choices: ['Titular', 'Suplente', 'Docente JE', 'Otro'],
+        helpText: 'Opcional. Si no sabes, dejalo vacio.' }
+    ]
+  },
+
+  {
+    id: 'F-baja-02',
+    phase: 'operativa',
+    title: 'Marcar de licencia',
+    description: 'Marcar una docente como de licencia. Mantiene acceso al Drive (puede volver). NO aparece en los dropdowns de los formularios mientras esta de licencia.',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Marcar-Licencia',
+    items: [
+      { type: 'DROPDOWN', title: 'Que docente esta de licencia?', required: true,
+        choicesFromList: 'docentes',
+        helpText: 'Solo aparecen las docentes Activa.' }
+    ]
+  },
+
+  {
+    id: 'F-baja-03',
+    phase: 'operativa',
+    title: 'Volvio de licencia',
+    description: 'Marcar una docente como Activa de nuevo. NO desactiva al suplente (decision humana de la directora).',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Volvio-Licencia',
+    items: [
+      { type: 'DROPDOWN', title: 'Que docente volvio?', required: true,
+        choicesFromList: 'docentes',
+        helpText: 'Solo aparecen las docentes con Estado Licencia.' }
+    ]
+  },
+
+  {
+    id: 'F-baja-04',
+    phase: 'operativa',
+    title: 'Dar de baja a una docente',
+    description: 'Marcar una docente como No disponible. Pierde acceso al Drive inmediatamente. La fila NO se borra (queda como historico institucional). Operacion irreversible — usar con cuidado.',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Dar-De-Baja',
+    items: [
+      { type: 'DROPDOWN', title: 'A quien das de baja?', required: true,
+        choicesFromList: 'docentes',
+        helpText: 'Activa o Licencia. La docente que selecciones pierde acceso al Drive.' },
+      { type: 'CHECKBOX', title: 'Confirmacion', required: true,
+        choices: ['Si, dar de baja. Entiendo que pierde acceso al Drive y la operacion no es reversible.'],
+        helpText: 'Marca la casilla para confirmar.' }
+    ]
   }
 
 ];

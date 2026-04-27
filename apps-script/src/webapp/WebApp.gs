@@ -120,8 +120,14 @@ const WebApp = (function() {
         ? 'https://quickchart.io/qr?text=' + encodeURIComponent(ctx.panelDocentesUrl) + '&size=240&margin=2&ecLevel=M'
         : '';
       ctx.onboardingFormUrl = _getOnboardingFormUrl();
-      const totalForms = (typeof FORMS_CFG !== 'undefined' ? FORMS_CFG.length : 0);
-      const activeForms = _filterByOnboardingFlags(typeof FORMS_CFG !== 'undefined' ? FORMS_CFG : []).length;
+      // Paso 8 plan v3: forms operativos (phase='operativa') NO se cuentan
+      // como "formularios del ciclo escolar" — son del Panel Directora, no
+      // del flujo pedagogico/institucional/etc del Panel Docentes.
+      const docenteForms = (typeof FORMS_CFG !== 'undefined' ? FORMS_CFG : []).filter(function(f) {
+        return PHASE_ORDER.indexOf(f.phase) !== -1;
+      });
+      const totalForms = docenteForms.length;
+      const activeForms = _filterByOnboardingFlags(docenteForms).length;
       ctx.cfgSummary = {
         formsActive: activeForms,
         formsTotal: totalForms,
@@ -167,8 +173,11 @@ const WebApp = (function() {
     PHASE_ORDER.forEach(function(p) { byPhase[p] = []; });
     const formsToShow = _filterByOnboardingFlags(FORMS_CFG);
     formsToShow.forEach(function(form) {
-      const phase = byPhase[form.phase] ? form.phase : 'admin';
-      byPhase[phase].push({
+      // Paso 8 plan v3: phase='operativa' (forms baja/suplentes del Panel
+      // Directora) NO aparecen en el Panel Docentes — solo phases
+      // pedagogica/institucional/comunicacion/admin van a los 14 botones.
+      if (PHASE_ORDER.indexOf(form.phase) === -1) return;
+      byPhase[form.phase].push({
         formId: form.id,
         title: form.title,
         description: form.description || '',
