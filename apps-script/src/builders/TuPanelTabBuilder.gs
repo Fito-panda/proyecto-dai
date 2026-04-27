@@ -108,7 +108,65 @@ const TuPanelTabBuilder = {
 
   _getAdminUrl() {
     const base = this._getTeacherUrl();
-    return base ? (base + '?role=admin') : '';
+    if (!base) return '';
+
+    // Paso 7 plan v3 (2026-04-27): URL admin con token personalizado de la
+    // directora. Lee director_email de _respuestas_config, busca su fila en
+    // 👥 Docentes, extrae la columna Token (10). Si no encuentra (pre-siembra,
+    // sin onboarding completado, o error), retorna URL sin token — la rama
+    // doGet renderizará PanelInvalido con reason='invalid-token', mostrando
+    // el mensaje cálido "Pedile un link nuevo a la directora".
+    const directorToken = this._getDirectorToken();
+    if (directorToken) {
+      return base + '?role=admin&token=' + encodeURIComponent(directorToken);
+    }
+    return base + '?role=admin';
+  },
+
+  /**
+   * _getDirectorToken — paso 7 plan v3 (2026-04-27).
+   *
+   * Busca el token de la directora en la pestaña 👥 Docentes del Sheet
+   * template. Identifica la fila por email coincidente con
+   * director_email de _respuestas_config. Defensive: cualquier error
+   * retorna string vacío (caller usa fallback a URL sin token).
+   *
+   * Retorna: string (token UUID) o '' si no encontrado/error.
+   */
+  _getDirectorToken() {
+    try {
+      let directorEmail = '';
+      try {
+        if (typeof readConfigFromSheet === 'function') {
+          const cfg = readConfigFromSheet();
+          directorEmail = String(cfg.director_email || '').trim().toLowerCase();
+        }
+      } catch (err) {
+        return '';
+      }
+      if (!directorEmail) return '';
+
+      const containerSheet = SpreadsheetApp.getActiveSpreadsheet();
+      if (!containerSheet) return '';
+      const tab = containerSheet.getSheetByName('👥 Docentes');
+      if (!tab) return '';
+      const lastRow = tab.getLastRow();
+      if (lastRow < 3) return '';
+
+      // Lee 10 columnas, data rows desde row 3
+      const range = tab.getRange(3, 1, lastRow - 2, 10);
+      const values = range.getValues();
+
+      for (let i = 0; i < values.length; i++) {
+        const rowEmail = String(values[i][3] || '').trim().toLowerCase();
+        if (rowEmail === directorEmail) {
+          return String(values[i][9] || '').trim();
+        }
+      }
+      return '';
+    } catch (err) {
+      return '';
+    }
   },
 
   _buildBannerLines(adminUrl, teacherUrl, hasUrl) {
