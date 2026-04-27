@@ -233,7 +233,7 @@ const SetupOrchestrator = {
    *
    * Cada fila se agrega solo si NO existe ya una fila con ese email en la
    * pestaña (idempotencia via _upsertDocenteByEmail). Token UUID generado
-   * con Utilities.getUuid() para cada nueva fila. Estado inicial = 'Activa'.
+   * con TokenService.generate() para cada nueva fila. Estado inicial = 'Activa'.
    *
    * Defensive: si _respuestas_config no esta poblada (caso pre-onboarding
    * o smoke test sin onboarding), retorna sin sembrar.
@@ -286,7 +286,7 @@ const SetupOrchestrator = {
         today,
         today,
         'Directora (sembrada del onboarding)',
-        Utilities.getUuid()
+        TokenService.generate()
       ]);
       if (wasSeeded) result.seeded++;
       else result.skipped++;
@@ -315,7 +315,7 @@ const SetupOrchestrator = {
           today,
           today,
           'Sembrada del onboarding (apellido/nombre vacios — completar a mano o via "Sumar docente")',
-          Utilities.getUuid()
+          TokenService.generate()
         ]);
         if (wasSeeded) result.seeded++;
         else result.skipped++;
