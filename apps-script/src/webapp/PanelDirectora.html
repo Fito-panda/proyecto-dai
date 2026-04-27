@@ -168,7 +168,7 @@
 
   <header>
     <div class="role">Panel Directora</div>
-    <h1><?= ctx.directorName || ctx.schoolName ?></h1>
+    <h1><?= ctx.greetingName || ctx.directorName || ctx.schoolName ?></h1>
     <div class="meta"><?= ctx.schoolName ?><? if (ctx.location) { ?> · <?= ctx.location ?><? } ?><? if (ctx.year) { ?> · <?= ctx.year ?><? } ?></div>
   </header>
 

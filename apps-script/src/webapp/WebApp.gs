@@ -28,13 +28,50 @@
  */
 
 function doGet(e) {
-  const role = (e && e.parameter && e.parameter.role) || '';
+  const params = (e && e.parameter) || {};
+  const role = params.role || '';
   const isAdmin = role === 'admin';
-  const templateName = isAdmin ? 'src/webapp/PanelDirectora' : 'src/webapp/PanelDocentes';
-  const template = HtmlService.createTemplateFromFile(templateName);
-  template.ctx = WebApp._getContext(isAdmin);
+
+  // Paso 6 plan v3 (2026-04-27): rama admin requiere ?token= valido contra
+  // 👥 Docentes via TokenService.validate. Si no autorizado: render
+  // PanelInvalido. Si autorizado: PanelDirectora con saludo personalizado.
+  // PanelDocentes (sin role=admin) sigue siendo Anyone-with-link sin auth.
+  if (isAdmin) {
+    const token = String(params.token || '').trim();
+    const auth = (typeof TokenService !== 'undefined' && TokenService.validate)
+      ? TokenService.validate(token)
+      : { authorized: false, docente: null, reason: 'tokenservice-unavailable' };
+
+    if (!auth.authorized) {
+      const tmpl = HtmlService.createTemplateFromFile('src/webapp/PanelInvalido');
+      tmpl.reason = auth.reason;
+      tmpl.docente = auth.docente; // null o {apellido,nombre,email,estado}
+      return tmpl.evaluate()
+        .setTitle('DAI — Acceso no disponible')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    }
+
+    // Autorizado: PanelDirectora con ctx extendido
+    const template = HtmlService.createTemplateFromFile('src/webapp/PanelDirectora');
+    template.ctx = WebApp._getContext(true);
+    template.ctx.tokenAuth = auth; // {authorized:true, docente:{...}, reason:null}
+    // greetingName: nombre primero, fallback apellido, fallback ctx.directorName
+    template.ctx.greetingName = auth.docente.nombre
+      || auth.docente.apellido
+      || template.ctx.directorName
+      || template.ctx.schoolName;
+    return template.evaluate()
+      .setTitle('DAI — Panel Directora')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  // Default: PanelDocentes (sin auth, mismo comportamiento previo)
+  const template = HtmlService.createTemplateFromFile('src/webapp/PanelDocentes');
+  template.ctx = WebApp._getContext(false);
   return template.evaluate()
-    .setTitle('DAI — ' + (isAdmin ? 'Panel Directora' : 'Escuela'))
+    .setTitle('DAI — Escuela')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
