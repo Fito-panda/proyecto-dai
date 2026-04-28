@@ -94,6 +94,74 @@ const FormalFormsTriggerManager = {
   },
 
   /**
+   * uninstall() — desinstala todos los triggers onFormalFormSubmit.
+   * Paso 8.5/20 plan v3 baja/suplentes-docente (2026-04-28).
+   *
+   * Necesario antes del paso 9 (OnSubmitDispatcher consolidado) para evitar
+   * coexistencia de 2 handlers que escribirian docs duplicados por cada
+   * submission de F05/F06/F08-F14 (Loop 3 hallazgo 2-B).
+   *
+   * Itera ScriptApp.getProjectTriggers(), filtra los onFormSubmit con handler
+   * onFormalFormSubmit, los borra. NO toca triggers con otros handlers
+   * (ej. onFormSubmitHandler del F00 onboarding queda intacto).
+   *
+   * Limpia tambien el reverse lookup cache en PropertiesRegistry.
+   *
+   * Idempotente: si no hay triggers que matcheen, retorna deleted:0 sin error.
+   *
+   * Retorna: { deleted, kept, failed, message }.
+   */
+  uninstall() {
+    SetupLog.info('===== FormalFormsTriggerManager.uninstall iniciando =====', {
+      timestamp: new Date().toISOString()
+    });
+
+    const allTriggers = ScriptApp.getProjectTriggers();
+    let deleted = 0;
+    let kept = 0;
+    let failed = 0;
+
+    allTriggers.forEach(function(t) {
+      const handler = t.getHandlerFunction();
+      const eventType = t.getEventType();
+      const uid = t.getUniqueId();
+
+      if (handler === 'onFormalFormSubmit' &&
+          eventType === ScriptApp.EventType.ON_FORM_SUBMIT) {
+        try {
+          ScriptApp.deleteTrigger(t);
+          deleted++;
+          SetupLog.info('Trigger borrado', { uid: uid, handler: handler });
+        } catch (err) {
+          SetupLog.warn('Fallo borrar trigger', { uid: uid, err: String(err) });
+          failed++;
+        }
+      } else {
+        kept++;
+      }
+    });
+
+    // Limpiar cache reverse lookup (ya no aplica sin triggers).
+    try {
+      PropertiesRegistry.remove(this.REVERSE_LOOKUP_KEY);
+    } catch (err) {
+      SetupLog.warn('No se pudo limpiar reverse lookup', { err: String(err) });
+    }
+
+    const result = {
+      deleted: deleted,
+      kept: kept,
+      failed: failed,
+      message: 'Triggers onFormalFormSubmit eliminados: ' + deleted +
+        '. Triggers preservados (otros handlers): ' + kept +
+        (failed > 0 ? '. Fallos: ' + failed : '') + '.'
+    };
+
+    SetupLog.info('FormalFormsTriggerManager.uninstall OK', result);
+    return result;
+  },
+
+  /**
    * handleSubmit(e) — dispatcher llamado desde onFormalFormSubmit (Main.gs)
    * cuando uno de los 9 Forms formales recibe una respuesta.
    *
