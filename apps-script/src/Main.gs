@@ -84,17 +84,18 @@ function installSubmitDispatcher() {
   const handlerName = 'onFormSubmitDispatcher';
 
   // 0. Cachear template container ID en PropertiesRegistry para que
-  // OperacionesLog._resolveTemplate() lo encuentre desde triggers Sheet-bound
+  // TemplateResolver.resolve() lo encuentre desde triggers Sheet-bound
   // (donde getActiveSpreadsheet() retorna el Sheet del trigger, no el template).
   // Bug arquitectónico cazado durante validación funcional paso 9.
+  // Refactor paso 10.1: delega a TemplateResolver (utils/TemplateResolver.gs).
   try {
     const activeForCache = SpreadsheetApp.getActiveSpreadsheet();
-    if (activeForCache && typeof OperacionesLog !== 'undefined' && OperacionesLog.cacheTemplateContainer) {
-      const cached = OperacionesLog.cacheTemplateContainer(activeForCache);
+    if (activeForCache && typeof TemplateResolver !== 'undefined' && TemplateResolver.cache) {
+      const cached = TemplateResolver.cache(activeForCache);
       console.log('installSubmitDispatcher: template container cacheado = ' + cached);
     }
   } catch (cacheErr) {
-    console.warn('installSubmitDispatcher: cacheTemplateContainer fallo: ' + cacheErr);
+    console.warn('installSubmitDispatcher: TemplateResolver.cache fallo: ' + cacheErr);
   }
 
   // 1. Cleanup: borrar triggers viejos con handler onFormSubmitDispatcher.
