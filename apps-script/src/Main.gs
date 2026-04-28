@@ -354,3 +354,141 @@ function onFormSubmitHandler(e) {
 function onFormalFormSubmit(e) {
   return FormalFormsTriggerManager.handleSubmit(e);
 }
+
+/**
+ * cleanupOrphanColumns — limpia cols huerfanas pre-fix D-F3c-NUEVO-12
+ * (2026-04-28 sesion 2 vuelta 5). One-shot manual.
+ *
+ * Recorre los Sheets de respuestas vinculados a forms en el registry y
+ * detecta cols con headers DUPLICADOS donde una de las dos esta totalmente
+ * vacia (deja la otra con data). Borra las cols vacias del par duplicado.
+ *
+ * Heuristica conservadora: NO toca cols con headers unicos (incluso si
+ * estan vacias — pueden ser items opcionales). Solo borra cols vacias
+ * cuando hay 2+ cols con el mismo header — indica recreacion de items
+ * por bug pre-fix raiz D-F3c-NUEVO-12.
+ *
+ * Idempotente: si no hay duplicados, no toca nada y retorna report con
+ * sheetsCleaned:0. Si la fix raiz funciona y nadie crea duplicados nuevos,
+ * basta con correr esta funcion 1 vez para limpiar deuda historica.
+ *
+ * No depende de form.getItems() — solo del Sheet, mas defensivo: si el
+ * form se borro o cambio, la funcion sigue siendo correcta porque mira
+ * solo la estructura del Sheet.
+ *
+ * Retorna: { processed, sheetsCleaned, colsRemoved, details: [{sheet, removed}] }.
+ */
+function cleanupOrphanColumns() {
+  const allEntries = PropertiesRegistry.all();
+  const sheetKeys = Object.keys(allEntries).filter(function(k) {
+    return k.indexOf('sheet:SHEET-') === 0;
+  });
+
+  const report = {
+    processed: 0,
+    sheetsCleaned: 0,
+    colsRemoved: 0,
+    details: []
+  };
+
+  sheetKeys.forEach(function(key) {
+    const entry = allEntries[key];
+    if (!entry || !entry.id) return;
+
+    const sheetLabel = key.replace('sheet:', '');
+
+    try {
+      const ss = SpreadsheetApp.openById(entry.id);
+      // Tomar el primer Sheet del Spreadsheet (el de respuestas del form).
+      const tabs = ss.getSheets();
+      if (!tabs || !tabs.length) {
+        report.processed++;
+        return;
+      }
+      const tab = tabs[0];
+
+      const lastCol = tab.getLastColumn();
+      const lastRow = tab.getLastRow();
+      if (lastCol <= 1) {
+        report.processed++;
+        return; // solo Timestamp o vacio, nada que limpiar
+      }
+
+      const headers = tab.getRange(1, 1, 1, lastCol).getValues()[0];
+
+      // Agrupar cols por header
+      const headerToCols = {};
+      headers.forEach(function(h, idx) {
+        const headerStr = String(h || '').trim();
+        if (!headerStr) return; // cols sin header, ignorar
+        if (!headerToCols[headerStr]) headerToCols[headerStr] = [];
+        headerToCols[headerStr].push(idx + 1); // 1-indexed
+      });
+
+      const colsToDelete = [];
+
+      Object.keys(headerToCols).forEach(function(h) {
+        const cols = headerToCols[h];
+        if (cols.length < 2) return; // sin duplicate
+
+        // Para cada col del duplicate, contar filas con data
+        const colDataCounts = cols.map(function(colNum) {
+          if (lastRow < 2) return { col: colNum, count: 0 };
+          const values = tab.getRange(2, colNum, lastRow - 1, 1).getValues();
+          let count = 0;
+          for (let i = 0; i < values.length; i++) {
+            if (String(values[i][0] || '').trim()) count++;
+          }
+          return { col: colNum, count: count };
+        });
+
+        // Sortear por count descendente — la(s) con mas data al frente
+        colDataCounts.sort(function(a, b) { return b.count - a.count; });
+
+        // Edge case cazado en code review (2026-04-28 sesion 2):
+        // Si la primera col (con mas data) tiene count === 0, todas las cols
+        // del duplicate estan vacias — caso ambiguo: no sabemos cual es la
+        // "real" del form actual y cual es huerfana sin form.getItems() lookup.
+        // Conservador: NO borrar nada cuando todas estan vacias.
+        if (colDataCounts[0].count === 0) {
+          return; // skipear este header — duplicate todo vacio, ambiguo
+        }
+
+        // Path normal: hay 1+ col con data legitima. Las que tienen count=0
+        // son huerfanas pre-fix raiz. Borrar.
+        for (let i = 1; i < colDataCounts.length; i++) {
+          if (colDataCounts[i].count === 0) {
+            colsToDelete.push(colDataCounts[i].col);
+          }
+        }
+      });
+
+      // Borrar en orden inverso para mantener indices correctos
+      colsToDelete.sort(function(a, b) { return b - a; });
+      colsToDelete.forEach(function(colNum) {
+        tab.deleteColumn(colNum);
+      });
+
+      if (colsToDelete.length > 0) {
+        report.sheetsCleaned++;
+        report.colsRemoved += colsToDelete.length;
+        report.details.push({
+          sheet: sheetLabel,
+          removed: colsToDelete.length
+        });
+        console.log('cleanupOrphanColumns: ' + sheetLabel + ' — ' +
+          colsToDelete.length + ' cols huerfanas borradas');
+      }
+
+      report.processed++;
+    } catch (err) {
+      console.error('cleanupOrphanColumns: ' + sheetLabel + ' fallo: ' + err);
+    }
+  });
+
+  console.log('cleanupOrphanColumns OK: ' + report.sheetsCleaned + '/' +
+    report.processed + ' sheets limpiados, ' + report.colsRemoved +
+    ' cols huerfanas borradas en total.');
+
+  return report;
+}
