@@ -58,6 +58,124 @@ function uninstallFormalFormTriggers() {
 }
 
 /**
+ * installSubmitDispatcher — paso 9/20 plan v3 baja/suplentes-docente
+ * (2026-04-28, v2 post-validacion). Instala N triggers Sheet-bound (uno por
+ * cada Sheet de respuestas en DISPATCH_TABLE) con handler único
+ * onFormSubmitDispatcher. Reemplaza los 9 triggers viejos onFormalFormSubmit
+ * desinstalados en paso 8.5.
+ *
+ * Arquitectura post-fix v2: cada form tiene su propio Spreadsheet de
+ * respuestas (FormBuilder crea 1 Sheet separado por form en
+ * 06-Sheets-Maestros). Por eso necesitamos UN trigger Sheet-bound POR CADA
+ * Sheet de respuestas — el plan v3 §9 originalmente asumió que todos los
+ * forms compartían 1 Sheet container, pero la realidad es 15 Sheets separados.
+ *
+ * Cleanup automático: borra cualquier trigger viejo con handler
+ * onFormSubmitDispatcher antes de instalar los nuevos. Idempotente.
+ *
+ * Pre-condiciones:
+ *   - setupAll() ya corrio (PropertiesRegistry tiene keys 'sheet:SHEET-*-2026').
+ *   - OnSubmitDispatcher.gs cargado con DISPATCH_TABLE poblada.
+ *   - Paso 8.5 completado (sin triggers onFormalFormSubmit).
+ *
+ * Retorna: { cleaned, installed, failed, targets, message }.
+ */
+function installSubmitDispatcher() {
+  const handlerName = 'onFormSubmitDispatcher';
+
+  // 0. Cachear template container ID en PropertiesRegistry para que
+  // OperacionesLog._resolveTemplate() lo encuentre desde triggers Sheet-bound
+  // (donde getActiveSpreadsheet() retorna el Sheet del trigger, no el template).
+  // Bug arquitectónico cazado durante validación funcional paso 9.
+  try {
+    const activeForCache = SpreadsheetApp.getActiveSpreadsheet();
+    if (activeForCache && typeof OperacionesLog !== 'undefined' && OperacionesLog.cacheTemplateContainer) {
+      const cached = OperacionesLog.cacheTemplateContainer(activeForCache);
+      console.log('installSubmitDispatcher: template container cacheado = ' + cached);
+    }
+  } catch (cacheErr) {
+    console.warn('installSubmitDispatcher: cacheTemplateContainer fallo: ' + cacheErr);
+  }
+
+  // 1. Cleanup: borrar triggers viejos con handler onFormSubmitDispatcher.
+  // Incluye el zombie del v1 (apuntaba al template, nunca recibio eventos).
+  const existing = ScriptApp.getProjectTriggers();
+  let cleaned = 0;
+  for (let i = 0; i < existing.length; i++) {
+    const t = existing[i];
+    if (t.getHandlerFunction() === handlerName) {
+      try {
+        ScriptApp.deleteTrigger(t);
+        cleaned++;
+      } catch (err) {
+        console.warn('installSubmitDispatcher cleanup fallo UID ' +
+          t.getUniqueId() + ': ' + err);
+      }
+    }
+  }
+  console.log('installSubmitDispatcher: ' + cleaned + ' triggers viejos limpiados.');
+
+  // 2. Identificar Sheets de respuestas que tienen entry en DISPATCH_TABLE.
+  // Solo instalar triggers para esos (excluir SHEET-Listas-Maestras y otros
+  // Sheets que no son destinos de forms del ciclo).
+  if (typeof DISPATCH_TABLE === 'undefined') {
+    throw new Error('installSubmitDispatcher: DISPATCH_TABLE no definido. Verificar OnSubmitDispatcher.gs.');
+  }
+
+  const sheetNamesEnDispatch = Object.keys(DISPATCH_TABLE);
+  const allEntries = PropertiesRegistry.all();
+  const targets = [];
+
+  sheetNamesEnDispatch.forEach(function(sheetName) {
+    const key = 'sheet:' + sheetName;
+    const entry = allEntries[key];
+    if (entry && entry.id) {
+      targets.push({ sheetName: sheetName, sheetId: entry.id });
+    } else {
+      console.warn('installSubmitDispatcher: ' + key + ' no encontrada en registry. Skip.');
+    }
+  });
+
+  console.log('installSubmitDispatcher: ' + targets.length + '/' +
+    sheetNamesEnDispatch.length + ' sheets target identificados.');
+
+  // 3. Instalar trigger por cada Sheet target.
+  const installed = [];
+  const failed = [];
+  targets.forEach(function(target) {
+    try {
+      const ss = SpreadsheetApp.openById(target.sheetId);
+      const trigger = ScriptApp.newTrigger(handlerName)
+        .forSpreadsheet(ss)
+        .onFormSubmit()
+        .create();
+      installed.push({
+        sheetName: target.sheetName,
+        triggerUid: trigger.getUniqueId()
+      });
+      console.log('installSubmitDispatcher: trigger instalado para ' +
+        target.sheetName + ' UID ' + trigger.getUniqueId());
+    } catch (err) {
+      failed.push({ sheetName: target.sheetName, error: String(err) });
+      console.error('installSubmitDispatcher: fallo trigger para ' +
+        target.sheetName + ': ' + err);
+    }
+  });
+
+  const result = {
+    cleaned: cleaned,
+    installed: installed.length,
+    failed: failed.length,
+    targets: targets.length,
+    message: 'Cleanup: ' + cleaned + ' viejos. Instalados: ' + installed.length +
+      '/' + targets.length + '. Fallos: ' + failed.length + '.'
+  };
+
+  console.log('installSubmitDispatcher OK: ' + result.message);
+  return result;
+}
+
+/**
  * Corre todo. Crea/actualiza Drive tree + Listas Maestras + los 11 forms + sheets + dashboard vacio.
  * Es idempotente: correr dos veces no duplica.
  * Se ejecuta AUTO desde onFormSubmitHandler si confirm_generate='Si',
