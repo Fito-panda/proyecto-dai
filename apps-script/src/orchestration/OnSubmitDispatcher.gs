@@ -40,15 +40,211 @@
 // ============================================================================
 
 /**
- * handleSumarDocenteStub — stub paso 9. TODO paso 10: implementacion real
- * (transaccion logica con TokenService.generate() PRIMERO, despues
- * upsertByEmail — Loop 3 hallazgo 4-B).
+ * handleSumarDocente — paso 10/20 plan v3 baja/suplentes-docente (2026-04-28).
+ *
+ * Recibe submission del form F-baja-01 (Sumar una docente, panel directora).
+ * Ejecuta la transaccion logica completa:
+ *   1. Validar inputs (apellido+nombre, email — required; dni, tipo — opcional).
+ *   2. Verificar duplicado por email en 👥 Docentes (skip si ya existe).
+ *   3. Generar token UUID PRIMERO (Loop 3 hallazgo 4-B — sin token, no escribimos).
+ *   4. Escribir fila atomica en 👥 Docentes con Estado=Activa.
+ *   5. Compartir yearFolder Drive con email (best-effort, continue-on-error).
+ *   6. refreshDocentes() — stub hasta paso 14 plan v3.
+ *   7. Loguear exito a 📋 Estado del sistema con URL admin (decision Fito:
+ *      log only en v1 — Nely copia la URL del log).
+ *
+ * Cazadas resueltas:
+ *   - Cazada A (getActiveSpreadsheet del trigger): TemplateResolver.resolve()
+ *     resuelve el template via cache 'template:container' cuando active es el
+ *     Sheet del trigger Sheet-bound (sub-paso 10.1).
+ *   - Cazada B (yearFolder ID): defensive check folder:2026 en registry, WARN
+ *     + skip share si no existe. Fila NO se revierte (Nely comparte manual).
+ *   - Cazada C (LockService omitido — decision Fito): TODO PEND-PROD-1 anotado.
+ *   - Cazada D (DOC_TEMPLATES): N/A — handler escribe a 👥 Docentes, no llama
+ *     processFormalSubmit.
+ *
+ * Defensive guard L1 (feedback sesion vieja paso 10): si TemplateResolver no
+ * resuelve, throw visible en panel Activadores en lugar de fallar silencioso.
  */
-function handleSumarDocenteStub(e) {
-  OperacionesLog.info('handleSumarDocente recibido (stub paso 9)', {
-    sheetName: e.range.getSheet().getName(),
-    rowIndex: e.range.getRow(),
-    namedValues: e.namedValues
+function handleSumarDocente(e) {
+  // L1 — Defensive guard. Sin template, no hay transaccion posible.
+  const ss = TemplateResolver.resolve('👥 Docentes');
+  if (!ss) {
+    console.error('handleSumarDocente: TemplateResolver.resolve fallo. ' +
+      'Correr installSubmitDispatcher() para cachear template:container.');
+    throw new Error('handleSumarDocente: template no resuelve — ' +
+      'installSubmitDispatcher requerido');
+  }
+  const tab = ss.getSheetByName('👥 Docentes');
+  if (!tab) {
+    console.error('handleSumarDocente: pestaña 👥 Docentes no existe en template.');
+    throw new Error('handleSumarDocente: pestaña 👥 Docentes no existe');
+  }
+
+  // TODO PEND-PROD-1 (escala 956 escuelas): wrap toda la logica en
+  // LockService.getScriptLock().tryLock(timeout) + try/finally para release.
+  // Hoy omitido (demo 1 directora, sin concurrencia real).
+
+  // ==========================================================================
+  // 1. Extraer y validar inputs (spec §2.1).
+  //
+  // _firstNonEmpty: defensive helper para items duplicados del form
+  // (D-F3c-NUEVO-12 detectado 2026-04-28 vuelta 4 paso 10). Si el form tiene
+  // 2 items con el mismo titulo (efecto colateral de FormBuilder.applyItem
+  // no-idempotente al re-correr setupAll), e.namedValues['key'] retorna
+  // ['', 'valor real']. Tomar [0] retornaria vacio. Iteramos hasta encontrar
+  // el primer elemento no-vacio (despues de trim). Caso form normal (1 item,
+  // 1 valor): funciona identico a [0].
+  // ==========================================================================
+  function _firstNonEmpty(arr) {
+    if (!arr || !arr.length) return '';
+    for (let i = 0; i < arr.length; i++) {
+      const v = String(arr[i] || '').trim();
+      if (v) return v;
+    }
+    return '';
+  }
+
+  const namedValues = (e && e.namedValues) || {};
+  const apellidoNombre = _firstNonEmpty(namedValues['Apellido y nombre']);
+  const dni = _firstNonEmpty(namedValues['DNI']);
+  const email = _firstNonEmpty(namedValues['Email']);
+  const tipo = _firstNonEmpty(namedValues['Tipo']);
+
+  if (!apellidoNombre) {
+    OperacionesLog.error('handleSumarDocente: Apellido y nombre vacio', {
+      namedValues: namedValues
+    });
+    return;
+  }
+  // Mismo regex que SetupOrchestrator._isValidEmail (spec §2.1)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    OperacionesLog.error('handleSumarDocente: email invalido o vacio', {
+      email: email, namedValues: namedValues
+    });
+    return;
+  }
+
+  // Parse "Apellido Nombre" — primera palabra apellido, resto nombre
+  // (mismo patron que SetupOrchestrator._seedDocentesFromOnboarding).
+  const parts = apellidoNombre.split(' ').filter(function(p) { return p.length > 0; });
+  const apellido = parts.length > 0 ? parts[0] : '';
+  const nombre = parts.slice(1).join(' ');
+
+  // ==========================================================================
+  // 2. Verificar duplicado por email (spec §2.2). Idempotencia critica:
+  // re-submit del mismo form NO debe duplicar la fila.
+  // ==========================================================================
+  const targetEmailLower = email.toLowerCase();
+  const lastRow = tab.getLastRow();
+  if (lastRow >= 3) {
+    const existingEmails = tab.getRange(3, 4, lastRow - 2, 1).getValues();
+    for (let i = 0; i < existingEmails.length; i++) {
+      if (String(existingEmails[i][0] || '').trim().toLowerCase() === targetEmailLower) {
+        OperacionesLog.warn('handleSumarDocente: email ya existe en 👥 Docentes — skip', {
+          email: email, rowExistente: 3 + i, apellidoNombre: apellidoNombre
+        });
+        return;
+      }
+    }
+  }
+
+  // ==========================================================================
+  // 3. Generar token PRIMERO (Loop 3 hallazgo 4-B + spec §2.3).
+  // Sin token, no escribimos fila parcial.
+  // ==========================================================================
+  let token;
+  try {
+    token = TokenService.generate();
+  } catch (tokenErr) {
+    OperacionesLog.error('handleSumarDocente: TokenService.generate fallo', {
+      err: String(tokenErr), email: email
+    });
+    throw tokenErr;
+  }
+
+  // ==========================================================================
+  // 4. Escribir fila completa atomica (spec §2.4). Schema 10 cols:
+  // [Apellido, Nombre, DNI, Email, Tipo, Estado, Fecha alta, Fecha cambio, Notas, Token]
+  // ==========================================================================
+  const today = new Date();
+  tab.appendRow([
+    apellido,
+    nombre,
+    dni,
+    email,
+    tipo,
+    'Activa',
+    today,
+    today,
+    'Sumada via Panel Directora',
+    token
+  ]);
+
+  // ==========================================================================
+  // 5. Compartir Drive yearFolder (best-effort, cazada anticipada B + spec §2.5).
+  // Si falla, NO revertir la fila — la docente queda registrada y Nely puede
+  // compartir el folder manual desde Drive.
+  // ==========================================================================
+  try {
+    const yearFolderEntry = PropertiesRegistry.get('folder:2026');
+    if (yearFolderEntry && yearFolderEntry.id) {
+      const yearFolder = DriveApp.getFolderById(yearFolderEntry.id);
+      yearFolder.addEditor(email);
+      OperacionesLog.info('handleSumarDocente: addEditor yearFolder OK', {
+        email: email, yearFolderId: yearFolderEntry.id
+      });
+    } else {
+      OperacionesLog.warn('handleSumarDocente: folder:2026 no en registry — share skipped', {
+        email: email, accion: 'compartir manual desde Drive'
+      });
+    }
+  } catch (shareErr) {
+    OperacionesLog.warn('handleSumarDocente: addEditor fallo — fila escrita igual', {
+      email: email, err: String(shareErr), accion: 'compartir manual desde Drive'
+    });
+  }
+
+  // ==========================================================================
+  // 6. refreshDocentes() — paso 14 plan v3 pendiente (spec §2.6).
+  // Cuando 14 se implemente, regenera dropdowns de los 6 forms con
+  // choicesFromList: 'docentes' para incluir la docente recien sumada.
+  // ==========================================================================
+  if (typeof refreshDocentes === 'function') {
+    try {
+      refreshDocentes();
+      OperacionesLog.info('handleSumarDocente: refreshDocentes OK', {});
+    } catch (refreshErr) {
+      OperacionesLog.warn('handleSumarDocente: refreshDocentes fallo', {
+        err: String(refreshErr)
+      });
+    }
+  } else {
+    OperacionesLog.info('handleSumarDocente: refreshDocentes pendiente paso 14 plan v3', {});
+  }
+
+  // ==========================================================================
+  // 7. Log de exito + URL admin (spec §2.7-2.8 — decision Fito: log only).
+  // Nely copia urlAdmin del log y se la manda a la nueva docente por WhatsApp.
+  // ==========================================================================
+  let urlAdmin = '';
+  try {
+    const base = PropertiesService.getScriptProperties().getProperty('webapp-url:teacher') || '';
+    if (base) {
+      urlAdmin = base + '?role=admin&token=' + encodeURIComponent(token);
+    }
+  } catch (urlErr) {
+    // no-op — urlAdmin queda vacio
+  }
+
+  OperacionesLog.info('Docente sumada', {
+    apellido: apellido,
+    nombre: nombre,
+    email: email,
+    tipo: tipo,
+    tokenLast4: token.slice(-4),
+    urlAdmin: urlAdmin || '(URL no disponible — abrir webapp /exec una vez para que cachee webapp-url:teacher)'
   });
 }
 
@@ -127,7 +323,7 @@ function _delegateToPedagogicoStub(formId) {
 
 const DISPATCH_TABLE = {
   // 4 forms operativos del Panel Directora (paso 8 plan v3) — stubs.
-  'SHEET-Sumar-Docente-2026':        handleSumarDocenteStub,
+  'SHEET-Sumar-Docente-2026':        handleSumarDocente,
   'SHEET-Marcar-Licencia-2026':      handleMarcarLicenciaStub,
   'SHEET-Volvio-Licencia-2026':      handleVolvioLicenciaStub,
   'SHEET-Dar-De-Baja-2026':          handleDarDeBajaStub,
