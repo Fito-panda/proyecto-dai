@@ -87,24 +87,9 @@ function handleSumarDocente(e) {
 
   // ==========================================================================
   // 1. Extraer y validar inputs (spec §2.1).
-  //
-  // _firstNonEmpty: defensive helper para items duplicados del form
-  // (D-F3c-NUEVO-12 detectado 2026-04-28 vuelta 4 paso 10). Si el form tiene
-  // 2 items con el mismo titulo (efecto colateral de FormBuilder.applyItem
-  // no-idempotente al re-correr setupAll), e.namedValues['key'] retorna
-  // ['', 'valor real']. Tomar [0] retornaria vacio. Iteramos hasta encontrar
-  // el primer elemento no-vacio (despues de trim). Caso form normal (1 item,
-  // 1 valor): funciona identico a [0].
+  // Usa _firstNonEmpty global (helper compartido — defensive para items
+  // duplicados D-F3c-NUEVO-12, mitigacion del bug pre-fix raiz).
   // ==========================================================================
-  function _firstNonEmpty(arr) {
-    if (!arr || !arr.length) return '';
-    for (let i = 0; i < arr.length; i++) {
-      const v = String(arr[i] || '').trim();
-      if (v) return v;
-    }
-    return '';
-  }
-
   const namedValues = (e && e.namedValues) || {};
   const apellidoNombre = _firstNonEmpty(namedValues['Apellido y nombre']);
   const dni = _firstNonEmpty(namedValues['DNI']);
@@ -248,40 +233,231 @@ function handleSumarDocente(e) {
   });
 }
 
+// ============================================================================
+// Helpers compartidos para handlers operativos (pasos 11-13 plan v3).
+// Definidos en scope global para reuso entre handleMarcarLicencia,
+// handleVolvioLicencia, handleDarDeBaja, y handleSumarDocente.
+// ============================================================================
+
 /**
- * handleMarcarLicenciaStub — stub paso 9. TODO paso 11: cambiar Estado a
- * 'Licencia' + Fecha cambio Estado = hoy. NO toca permisos del Drive.
+ * _firstNonEmpty(arr) — defensive helper para items duplicados del form
+ * (mitigacion D-F3c-NUEVO-12). Si el form tiene 2 items con el mismo titulo
+ * (efecto colateral de FormBuilder.applyItem no-idempotente pre-fix raiz),
+ * e.namedValues['key'] retorna ['', 'valor real']. Tomar [0] retornaria
+ * vacio. Iteramos hasta encontrar el primer elemento no-vacio (despues
+ * de trim). Caso form normal (1 item, 1 valor): identico a [0].
+ *
+ * Movido a scope global el 2026-04-28 sesion 2 vuelta 6 — pasos 11-13
+ * lo reusan.
  */
-function handleMarcarLicenciaStub(e) {
-  OperacionesLog.info('handleMarcarLicencia recibido (stub paso 9)', {
-    sheetName: e.range.getSheet().getName(),
-    rowIndex: e.range.getRow(),
-    namedValues: e.namedValues
-  });
+function _firstNonEmpty(arr) {
+  if (!arr || !arr.length) return '';
+  for (let i = 0; i < arr.length; i++) {
+    const v = String(arr[i] || '').trim();
+    if (v) return v;
+  }
+  return '';
 }
 
 /**
- * handleVolvioLicenciaStub — stub paso 9. TODO paso 12: cambiar Estado a
- * 'Activa' + Fecha cambio Estado = hoy. NO desactiva al suplente.
+ * _findDocenteRowByDropdown(tab, dropdownValue) — busca la fila de la
+ * pestaña '👥 Docentes' que matchea el value del dropdown 'docentes' del
+ * form (formato `"Apellido, Nombre"` por ListasMaestrasBuilder
+ * _readDocentesFromContainer L181 — concat con ', ').
+ *
+ * Edge cases: si solo apellido o solo nombre, ListasMaestrasBuilder
+ * retorna sin coma. Replicamos la misma logica para identificar el match.
+ *
+ * Caveat homonimas: si hay 2 docentes con la misma combinacion exacta
+ * "Apellido, Nombre", retorna la primera. Deuda menor — el dropdown
+ * tampoco las distingue. Workaround proper requiere agregar email al
+ * dropdown (scope nuevo).
+ *
+ * Returns: row absoluto en el Sheet (3+) o -1 si no encontrada.
  */
-function handleVolvioLicenciaStub(e) {
-  OperacionesLog.info('handleVolvioLicencia recibido (stub paso 9)', {
-    sheetName: e.range.getSheet().getName(),
-    rowIndex: e.range.getRow(),
-    namedValues: e.namedValues
-  });
+function _findDocenteRowByDropdown(tab, dropdownValue) {
+  const target = String(dropdownValue || '').trim();
+  if (!target) return -1;
+
+  const lastRow = tab.getLastRow();
+  if (lastRow < 3) return -1;
+
+  // Cols 1+2 (Apellido + Nombre), data rows
+  const range = tab.getRange(3, 1, lastRow - 2, 2).getValues();
+
+  for (let i = 0; i < range.length; i++) {
+    const apellido = String(range[i][0] || '').trim();
+    const nombre = String(range[i][1] || '').trim();
+
+    let candidate;
+    if (apellido && nombre) candidate = apellido + ', ' + nombre;
+    else if (apellido) candidate = apellido;
+    else if (nombre) candidate = nombre;
+    else continue;
+
+    if (candidate === target) {
+      return 3 + i;
+    }
+  }
+  return -1;
 }
 
 /**
- * handleDarDeBajaStub — stub paso 9. TODO paso 13: cambiar Estado a
- * 'No disponible' + Token invalidado + try removeEditor con manejo defensivo
- * (Loop 3 hallazgo 4-C).
+ * _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) —
+ * patron compartido pasos 11-13 plan v3.
+ *
+ * Defensive guard L1 + lookup docente por dropdown + update Estado/Fecha
+ * cambio. Para handleDarDeBaja (paso 13), opts={invalidateToken:true,
+ * removeEditor:true} agrega revocacion de acceso (Loop 3 hallazgo 4-C:
+ * try/catch + log WARN si removeEditor falla, fila marcada No disponible
+ * igual — accion manual flagged en log para Nely).
+ *
+ * Returns: void. Loguea exito o error a OperacionesLog.
  */
-function handleDarDeBajaStub(e) {
-  OperacionesLog.info('handleDarDeBaja recibido (stub paso 9)', {
-    sheetName: e.range.getSheet().getName(),
-    rowIndex: e.range.getRow(),
-    namedValues: e.namedValues
+function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
+  // L1 — Defensive guard
+  const ss = TemplateResolver.resolve('👥 Docentes');
+  if (!ss) {
+    console.error(formName + ': TemplateResolver.resolve fallo. Correr installSubmitDispatcher.');
+    throw new Error(formName + ': template no resuelve — installSubmitDispatcher requerido');
+  }
+  const tab = ss.getSheetByName('👥 Docentes');
+  if (!tab) {
+    console.error(formName + ': pestaña 👥 Docentes no existe en template.');
+    throw new Error(formName + ': pestaña 👥 Docentes no existe');
+  }
+
+  // Extraer dropdown value
+  const namedValues = (e && e.namedValues) || {};
+  const dropdownValue = _firstNonEmpty(namedValues[dropdownTitle]);
+  if (!dropdownValue) {
+    OperacionesLog.error(formName + ': dropdown vacio', {
+      dropdownTitle: dropdownTitle, namedValues: namedValues
+    });
+    return;
+  }
+
+  // Lookup fila
+  const rowIndex = _findDocenteRowByDropdown(tab, dropdownValue);
+  if (rowIndex === -1) {
+    OperacionesLog.error(formName + ': docente no encontrada en 👥 Docentes', {
+      dropdownValue: dropdownValue
+    });
+    return;
+  }
+
+  // Capturar email + token + estado anterior antes del update (para log + ops)
+  const docenteRow = tab.getRange(rowIndex, 1, 1, 10).getValues()[0];
+  const apellido = String(docenteRow[0] || '').trim();
+  const nombre = String(docenteRow[1] || '').trim();
+  const email = String(docenteRow[3] || '').trim();
+  const tokenAnterior = String(docenteRow[9] || '').trim();
+  const estadoAnterior = String(docenteRow[5] || '').trim();
+
+  // Update Estado (col 6) + Fecha cambio (col 8)
+  const today = new Date();
+  tab.getRange(rowIndex, 6).setValue(nuevoEstado);
+  tab.getRange(rowIndex, 8).setValue(today);
+
+  // Para baja (paso 13): invalidate token + removeEditor (best-effort)
+  let tokenInvalidated = false;
+  let editorRemoved = false;
+  let editorRemoveFailed = false;
+
+  if (opts && opts.invalidateToken && tokenAnterior) {
+    try {
+      const result = TokenService.invalidate(tokenAnterior);
+      tokenInvalidated = result && result.invalidated;
+    } catch (tokenErr) {
+      OperacionesLog.warn(formName + ': TokenService.invalidate fallo', {
+        err: String(tokenErr), row: rowIndex
+      });
+    }
+  }
+
+  if (opts && opts.removeEditor && email) {
+    try {
+      const yearFolderEntry = PropertiesRegistry.get('folder:2026');
+      if (yearFolderEntry && yearFolderEntry.id) {
+        const yearFolder = DriveApp.getFolderById(yearFolderEntry.id);
+        yearFolder.removeEditor(email);
+        editorRemoved = true;
+      } else {
+        OperacionesLog.warn(formName + ': folder:2026 no en registry — removeEditor skipped (revocar manual desde Drive)', {
+          email: email
+        });
+      }
+    } catch (removeErr) {
+      editorRemoveFailed = true;
+      OperacionesLog.warn(formName + ': removeEditor fallo — fila marcada No disponible IGUAL, ACCION MANUAL: revocar acceso del email desde Drive', {
+        email: email, err: String(removeErr)
+      });
+    }
+  }
+
+  OperacionesLog.info(formName + ' OK', {
+    docente: dropdownValue,
+    apellido: apellido,
+    nombre: nombre,
+    email: email,
+    estadoAnterior: estadoAnterior,
+    estadoNuevo: nuevoEstado,
+    row: rowIndex,
+    tokenInvalidated: tokenInvalidated,
+    editorRemoved: editorRemoved,
+    editorRemoveFailed: editorRemoveFailed
+  });
+}
+
+// ============================================================================
+// Handlers operativos pasos 11-13 plan v3 baja/suplentes-docente (2026-04-28).
+// Patron simetrico via _changeDocenteEstado: Defensive guard + dropdown lookup
+// + update Estado/Fecha + (opt) token invalidation + (opt) Drive editor remove.
+// ============================================================================
+
+/**
+ * handleMarcarLicencia — paso 11/20. Cambia Estado a 'Licencia' + Fecha
+ * cambio = hoy. NO toca permisos del Drive (la docente con licencia
+ * mantiene acceso porque puede volver). NO desactiva al suplente que la
+ * cubra (decision humana de la directora — paso 17/18 trae UI para eso).
+ */
+function handleMarcarLicencia(e) {
+  return _changeDocenteEstado(e, 'handleMarcarLicencia', 'Que docente esta de licencia?', 'Licencia');
+}
+
+/**
+ * handleVolvioLicencia — paso 12/20. Cambia Estado a 'Activa' + Fecha
+ * cambio = hoy. NO desactiva al suplente automaticamente (decision humana
+ * de la directora). Si la docente nunca estuvo de licencia (no estado
+ * actual) igual se marca Activa — defensive: el dropdown solo deberia
+ * mostrar docentes con Estado=Licencia (paso 14 refreshDocentes pendiente).
+ */
+function handleVolvioLicencia(e) {
+  return _changeDocenteEstado(e, 'handleVolvioLicencia', 'Que docente volvio?', 'Activa');
+}
+
+/**
+ * handleDarDeBaja — paso 13/20. Cambia Estado a 'No disponible' + Fecha
+ * cambio = hoy + invalidate Token (limpia col 10) + try removeEditor del
+ * yearFolder (Loop 3 hallazgo 4-C: defensive — si falla, log WARN +
+ * accion manual flagged, fila marcada igual).
+ *
+ * Operacion irreversible — la fila NO se borra (queda como historico
+ * institucional). Defensive: requiere checkbox 'Confirmacion' marcado.
+ */
+function handleDarDeBaja(e) {
+  // Confirmation check defensive (form requiere required:true, pero por las dudas)
+  const namedValues = (e && e.namedValues) || {};
+  const confirmacion = _firstNonEmpty(namedValues['Confirmacion']);
+  if (!confirmacion) {
+    OperacionesLog.error('handleDarDeBaja: confirmacion no marcada — abortando (operacion irreversible)', {
+      namedValues: namedValues
+    });
+    return;
+  }
+  return _changeDocenteEstado(e, 'handleDarDeBaja', 'A quien das de baja?', 'No disponible', {
+    invalidateToken: true,
+    removeEditor: true
   });
 }
 
@@ -324,9 +500,9 @@ function _delegateToPedagogicoStub(formId) {
 const DISPATCH_TABLE = {
   // 4 forms operativos del Panel Directora (paso 8 plan v3) — stubs.
   'SHEET-Sumar-Docente-2026':        handleSumarDocente,
-  'SHEET-Marcar-Licencia-2026':      handleMarcarLicenciaStub,
-  'SHEET-Volvio-Licencia-2026':      handleVolvioLicenciaStub,
-  'SHEET-Dar-De-Baja-2026':          handleDarDeBajaStub,
+  'SHEET-Marcar-Licencia-2026':      handleMarcarLicencia,
+  'SHEET-Volvio-Licencia-2026':      handleVolvioLicencia,
+  'SHEET-Dar-De-Baja-2026':          handleDarDeBaja,
 
   // 6 forms formales del ciclo — delegation a processFormalSubmit (refactor
   // extract item 2 paso 9). Genera Google Doc segun DOC_TEMPLATES[formId].
