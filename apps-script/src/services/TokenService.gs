@@ -122,7 +122,14 @@ const TokenService = {
       return { invalidated: false, reason: 'invalid-token' };
     }
 
-    const containerSheet = SpreadsheetApp.getActiveSpreadsheet();
+    // Fix D-F3c-NUEVO-17 hermana (2026-04-28 sesion 2 vuelta 9): invalidate
+    // se invoca desde handleDarDeBaja (paso 13) en contexto trigger Sheet-bound
+    // donde getActiveSpreadsheet() retorna el Sheet del trigger NO el template.
+    // Migrado a TemplateResolver.resolve('👥 Docentes') que cae al cache de
+    // PropertiesRegistry['template:container'] cuando active no es template.
+    const containerSheet = (typeof TemplateResolver !== 'undefined' && TemplateResolver.resolve)
+      ? TemplateResolver.resolve('👥 Docentes')
+      : SpreadsheetApp.getActiveSpreadsheet();
     if (!containerSheet) {
       return { invalidated: false, reason: 'no-container' };
     }
