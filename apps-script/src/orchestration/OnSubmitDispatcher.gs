@@ -395,6 +395,21 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
     }
   }
 
+  // Refresh dropdowns que listan 👥 Docentes (paso 14 plan v3 — cierra
+  // D-F3c-NUEVO-14 dropdown stale post-edit). Best-effort: si falla, log
+  // WARN pero NO revertir el update Estado (la fila ya quedo correcta,
+  // los dropdowns quedan stale hasta proximo refresh).
+  let refreshReport = null;
+  if (typeof refreshDocentes === 'function') {
+    try {
+      refreshReport = refreshDocentes();
+    } catch (refreshErr) {
+      OperacionesLog.warn(formName + ': refreshDocentes fallo', {
+        err: String(refreshErr)
+      });
+    }
+  }
+
   OperacionesLog.info(formName + ' OK', {
     docente: dropdownValue,
     apellido: apellido,
@@ -405,7 +420,10 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
     row: rowIndex,
     tokenInvalidated: tokenInvalidated,
     editorRemoved: editorRemoved,
-    editorRemoveFailed: editorRemoveFailed
+    editorRemoveFailed: editorRemoveFailed,
+    refreshDurationMs: refreshReport && refreshReport.durationMs,
+    refreshItemsUpdated: refreshReport && refreshReport.itemsUpdated,
+    refreshFailed: refreshReport ? refreshReport.failed.length : null
   });
 }
 

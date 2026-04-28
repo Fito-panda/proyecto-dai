@@ -492,3 +492,140 @@ function cleanupOrphanColumns() {
 
   return report;
 }
+
+/**
+ * refreshDocentes — paso 14/20 plan v3 baja/suplentes-docente (2026-04-28).
+ *
+ * Recorre FORMS_CFG, encuentra items con choicesFromList: 'docentes' (14
+ * items distribuidos en ~12 forms del ciclo + operativos), y actualiza sus
+ * choices con la lista actualizada de 👥 Docentes (filtrada Estado=Activa,
+ * formato "Apellido, Nombre" — mismo que ListasMaestrasBuilder).
+ *
+ * Cierra D-F3c-NUEVO-14 (dropdown stale post-edit 👥 Docentes): handlers
+ * pasos 10-13 invocan refreshDocentes despues del update Estado, garantizando
+ * que el proximo submit del form tenga dropdowns sincronizados.
+ *
+ * NO duplica cols del Sheet (cazada anti-D-F3c-NUEVO-12): setChoiceValues
+ * modifica choices de un item existente, NO crea/borra el item — el ID
+ * interno NO cambia, Forms NO abre col nueva en el Sheet de respuestas. Safe.
+ *
+ * NO toca form-level settings (title, description, requireLogin paso 15
+ * futuro) — solo el item especifico.
+ *
+ * Defensive:
+ *   - Lista vacia → fallback ['(sin opciones)'] (mismo patron _applyItem).
+ *   - Form fantasma (registry desincronizado) → try/catch por form, log error,
+ *     continua con los demas (SPOF mitigation).
+ *   - Item renombrado manual → log WARN sin throw + skip ese item.
+ *   - Item type cambiado manual → chequeo getType pre-cast, mismatch → skip.
+ *
+ * Performance: estimado ~12-15s para 12 forms × 14 items (Apps Script time
+ * limit handler 6 min, margin amplio). Si en escala 956 escuelas + N
+ * docentes el tiempo molesta UX → batch / lazy en deuda PEND-PROD.
+ *
+ * Race condition: 2 submits simultaneos pueden gatillar 2 refreshes paralelos.
+ * PEND-PROD-1 (LockService) sigue omitido — demo 1 directora OK.
+ *
+ * Returns: { formsProcessed, itemsUpdated, failed: [{formId, item, error}],
+ *            durationMs }.
+ */
+function refreshDocentes() {
+  const startTime = new Date().getTime();
+  const report = {
+    formsProcessed: 0,
+    itemsUpdated: 0,
+    failed: [],
+    durationMs: 0
+  };
+
+  if (typeof FORMS_CFG === 'undefined') {
+    if (typeof SetupLog !== 'undefined' && SetupLog.error) {
+      SetupLog.error('refreshDocentes: FORMS_CFG no definido');
+    }
+    report.durationMs = new Date().getTime() - startTime;
+    return report;
+  }
+
+  // 1. Lista actualizada (filtrada Estado=Activa por _readDocentesFromContainer).
+  const docentes = ListasMaestrasBuilder._readDocentesFromContainer();
+  const choicesParaSetear = docentes.length ? docentes : ['(sin opciones)'];
+
+  // 2. Iterar FORMS_CFG, encontrar forms con items 'docentes'.
+  FORMS_CFG.forEach(function(cfg) {
+    const itemsToRefresh = (cfg.items || []).filter(function(item) {
+      return item.choicesFromList === 'docentes';
+    });
+    if (!itemsToRefresh.length) return;
+
+    // 3. Resolver form via registry (defensive).
+    let form;
+    try {
+      const formEntry = PropertiesRegistry.get('form:' + cfg.id);
+      if (!formEntry || !formEntry.id) {
+        report.failed.push({ formId: cfg.id, error: 'no en registry' });
+        return;
+      }
+      form = FormApp.openById(formEntry.id);
+    } catch (err) {
+      report.failed.push({ formId: cfg.id, error: 'openById fallo: ' + String(err) });
+      return;
+    }
+
+    // 4. Para cada item refresh: encontrar en form (match by title) y
+    //    actualizar choices via cast type-aware.
+    const formItems = form.getItems();
+
+    itemsToRefresh.forEach(function(itemCfg) {
+      let updated = false;
+      let warningType = null;
+
+      for (let i = 0; i < formItems.length; i++) {
+        if (formItems[i].getTitle() !== itemCfg.title) continue;
+
+        const itemType = formItems[i].getType();
+        try {
+          if (itemType === FormApp.ItemType.LIST) {
+            formItems[i].asListItem().setChoiceValues(choicesParaSetear);
+            updated = true;
+          } else if (itemType === FormApp.ItemType.CHECKBOX) {
+            formItems[i].asCheckboxItem().setChoiceValues(choicesParaSetear);
+            updated = true;
+          } else if (itemType === FormApp.ItemType.MULTIPLE_CHOICE) {
+            formItems[i].asMultipleChoiceItem().setChoiceValues(choicesParaSetear);
+            updated = true;
+          } else {
+            warningType = 'tipo no soportado: ' + itemType;
+          }
+        } catch (err) {
+          warningType = 'setChoiceValues fallo: ' + String(err);
+        }
+        break; // primer match
+      }
+
+      if (updated) {
+        report.itemsUpdated++;
+      } else if (warningType) {
+        report.failed.push({
+          formId: cfg.id, item: itemCfg.title, error: warningType
+        });
+      } else {
+        report.failed.push({
+          formId: cfg.id, item: itemCfg.title, error: 'item no encontrado en form (renombrado manual?)'
+        });
+      }
+    });
+
+    report.formsProcessed++;
+  });
+
+  report.durationMs = new Date().getTime() - startTime;
+
+  if (typeof SetupLog !== 'undefined' && SetupLog.info) {
+    SetupLog.info('refreshDocentes OK', report);
+  }
+  console.log('refreshDocentes: ' + report.formsProcessed + ' forms, ' +
+    report.itemsUpdated + ' items, ' + report.failed.length + ' fails, ' +
+    report.durationMs + 'ms');
+
+  return report;
+}

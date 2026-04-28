@@ -151,11 +151,21 @@ const ListasMaestrasBuilder = {
    * Defensive: si no hay container activo (smoke test, contexto raro),
    * retorna []. El caller usa DEFAULT_DOCENTES como fallback.
    *
+   * Resolucion del template (fix D-F3c-NUEVO-17, hermana de NUEVO-11
+   * detectada 2026-04-28 sesion 2 vuelta 8): cuando _readDocentesFromContainer
+   * se invoca embedded en handler operativo (refreshDocentes desde
+   * _changeDocenteEstado, contexto trigger Sheet-bound), getActiveSpreadsheet()
+   * retorna el Sheet del trigger NO el template — falla silente. Migrado a
+   * TemplateResolver.resolve('👥 Docentes') que cae en el cache de
+   * PropertiesRegistry['template:container'] cuando active no es template.
+   *
    * Retorna: array de strings tipo "Peralta, Nelly" filtrados Estado=Activa.
    */
   _readDocentesFromContainer() {
     try {
-      const container = SpreadsheetApp.getActiveSpreadsheet();
+      const container = (typeof TemplateResolver !== 'undefined' && TemplateResolver.resolve)
+        ? TemplateResolver.resolve('👥 Docentes')
+        : SpreadsheetApp.getActiveSpreadsheet();
       if (!container) return [];
       const tab = container.getSheetByName('👥 Docentes');
       if (!tab) return [];
