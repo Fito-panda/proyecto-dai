@@ -472,9 +472,19 @@ function getEquipoDocenteForPanel() {
 }
 
 /**
- * submitOperativoFromPanel — wrapper que arma fakeEvent + invoca el handler
- * operativo correcto (handleMarcarLicencia / handleVolvioLicencia /
- * handleDarDeBaja) según `accion`. NO toca handlers — solo orquesta.
+ * submitOperativoFromPanel — wrapper que opera DIRECTAMENTE sobre la fila
+ * de 👥 Docentes via email lookup, sin pasar por _findDocenteRowByDropdown.
+ *
+ * Refactor SPOF 95 (cazado en validación 17.3 Test 4): el path original
+ * armaba fakeEvent con dropdown value "Apellido, Nombre" y delegaba al
+ * handler. Para docentes con apellido+nombre vacíos (caso real de las
+ * 7 docentes test seed del paso 4 que solo tienen email), el handler
+ * fallaba con `docente-not-found` porque el dropdown value no se podía
+ * armar. El panel necesita un path independiente del dropdown.
+ *
+ * Esta versión hace la operación DIRECTAMENTE replicando la lógica de
+ * `_changeDocenteEstado` pero buscando por email en lugar de dropdown.
+ * NO toca handlers paso 19 (siguen validados para flujo via Form).
  *
  * Acciones soportadas: 'marcarLicencia' | 'volvioLicencia' | 'darDeBaja'.
  *
@@ -497,11 +507,11 @@ function submitOperativoFromPanel(accion, email) {
     accion: accion, email: email, userEmail: userEmail, requestId: requestId
   });
 
-  // Mapeo accion → handler + dropdownTitle + extraNamedValues.
+  // Mapeo accion → estado nuevo + opciones.
   const ACCION_MAP = {
-    'marcarLicencia':  { handler: handleMarcarLicencia,  dropdownTitle: 'Que docente esta de licencia?', extraNamedValues: {} },
-    'volvioLicencia':  { handler: handleVolvioLicencia,  dropdownTitle: 'Que docente volvio?',           extraNamedValues: {} },
-    'darDeBaja':       { handler: handleDarDeBaja,       dropdownTitle: 'A quien das de baja?',          extraNamedValues: { 'Confirmacion': ['Si, desde el panel'] } }
+    'marcarLicencia':  { estadoNuevo: 'Licencia',       invalidateToken: false, removeEditor: false },
+    'volvioLicencia':  { estadoNuevo: 'Activa',         invalidateToken: false, removeEditor: false },
+    'darDeBaja':       { estadoNuevo: 'No disponible',  invalidateToken: true,  removeEditor: true  }
   };
   const cfg = ACCION_MAP[accion];
   if (!cfg) {
@@ -518,71 +528,125 @@ function submitOperativoFromPanel(accion, email) {
 
   const warnings = [];
   try {
-    // Lookup docente por email para construir el dropdown value que el handler espera.
+    // Defensive guard.
     const ss = TemplateResolver.resolve('👥 Docentes');
-    if (!ss) return { ok: false, reason: 'no-template' };
-    const tab = ss.getSheetByName('👥 Docentes');
-    if (!tab) return { ok: false, reason: 'no-tab' };
-
-    const targetEmailNorm = _normalizeEmail(email);
-    const lastRow = tab.getLastRow();
-    if (lastRow < 3) return { ok: false, reason: 'docente-not-found' };
-
-    // Lee cols 1-4 (Apellido, Nombre, DNI, Email) para armar dropdown value.
-    const range = tab.getRange(3, 1, lastRow - 2, 4).getValues();
-    let dropdownValue = null;
-    for (let i = 0; i < range.length; i++) {
-      const rowEmailNorm = _normalizeEmail(String(range[i][3] || ''));
-      if (rowEmailNorm !== targetEmailNorm) continue;
-      const apellido = _normalizeNombre(String(range[i][0] || ''));
-      const nombre = _normalizeNombre(String(range[i][1] || ''));
-      if (apellido && nombre) dropdownValue = apellido + ', ' + nombre;
-      else if (apellido) dropdownValue = apellido;
-      else if (nombre) dropdownValue = nombre;
-      break;
+    if (!ss) {
+      OperacionesLog.error('panel-action: TemplateResolver.resolve fallo', { requestId: requestId });
+      return { ok: false, reason: 'no-template' };
     }
-    if (!dropdownValue) {
-      OperacionesLog.error('panel-action: docente no encontrada por email', { email: email, requestId: requestId });
+    const tab = ss.getSheetByName('👥 Docentes');
+    if (!tab) {
+      OperacionesLog.error('panel-action: pestaña 👥 Docentes no existe', { requestId: requestId });
+      return { ok: false, reason: 'no-tab' };
+    }
+
+    // Lookup fila DIRECTO por email (bypass dropdown).
+    const targetEmail = _normalizeEmail(email);
+    const lastRow = tab.getLastRow();
+    if (lastRow < 3) {
+      OperacionesLog.error('panel-action: 👥 Docentes vacía', { requestId: requestId });
       return { ok: false, reason: 'docente-not-found' };
     }
 
-    // Arma fakeEvent que el handler espera (validado paso 19 runCicloVidaTest).
-    const fakeNamedValues = {};
-    Object.keys(cfg.extraNamedValues).forEach(function(k) {
-      fakeNamedValues[k] = cfg.extraNamedValues[k];
-    });
-    fakeNamedValues[cfg.dropdownTitle] = [dropdownValue];
+    const range = tab.getRange(3, 1, lastRow - 2, 10).getValues();
+    let rowIndex = -1;
+    let rowData = null;
+    for (let i = 0; i < range.length; i++) {
+      if (_normalizeEmail(String(range[i][3] || '')) === targetEmail) {
+        rowIndex = 3 + i;
+        rowData = range[i];
+        break;
+      }
+    }
+    if (rowIndex === -1) {
+      OperacionesLog.error('panel-action: docente no encontrada por email', {
+        email: email, requestId: requestId
+      });
+      return { ok: false, reason: 'docente-not-found' };
+    }
 
-    // Invoca handler. SPOF 25: try/catch granular para que handler interno
-    // que escribió a 👥 Docentes pero falló en refreshDocentes embedded NO
-    // invalide el cambio principal.
-    try {
-      cfg.handler({ namedValues: fakeNamedValues });
-    } catch (handlerErr) {
-      // Handler tira error (ej. refreshDocentes alcanzó cap 6min).
-      // Verificamos si la mutación principal aplicó leyendo de nuevo.
-      const verify = _findEquipoDocenteByEmail(email);
-      if (verify && _expectedEstado(accion, verify.estado)) {
-        warnings.push('handler_partial');
-        OperacionesLog.warn('panel-action: handler tiró pero estado aplicó', {
-          accion: accion, email: email, err: String(handlerErr), requestId: requestId
+    const apellidoFila = String(rowData[0] || '').trim();
+    const nombreFila = String(rowData[1] || '').trim();
+    const emailFila = String(rowData[3] || '').trim();
+    const tokenViejo = String(rowData[9] || '').trim();
+    const estadoAnterior = String(rowData[5] || '').trim();
+
+    // Write Estado (col 6) + Fecha cambio (col 8) ATÓMICO.
+    const today = new Date();
+    tab.getRange(rowIndex, 6).setValue(cfg.estadoNuevo);
+    tab.getRange(rowIndex, 8).setValue(today);
+
+    // Para darDeBaja: invalidate token (col 10) — best-effort.
+    let tokenInvalidated = false;
+    if (cfg.invalidateToken && tokenViejo) {
+      try {
+        const result = TokenService.invalidate(tokenViejo);
+        tokenInvalidated = !!(result && result.invalidated);
+      } catch (tokenErr) {
+        OperacionesLog.warn('panel-action: TokenService.invalidate fallo', {
+          err: String(tokenErr), requestId: requestId
         });
-      } else {
-        OperacionesLog.error('panel-action: handler tiró sin aplicar', {
-          accion: accion, email: email, err: String(handlerErr), requestId: requestId
-        });
-        return { ok: false, reason: 'handler-error', error: String(handlerErr) };
       }
     }
 
-    // Re-lookup post-handler. SPOF 3: cliente recibe docente actualizada.
+    // Para darDeBaja: removeEditor del yearFolder — best-effort (SPOF 24).
+    let editorRemoved = false;
+    if (cfg.removeEditor && emailFila) {
+      try {
+        const yearFolderEntry = PropertiesRegistry.get('folder:2026');
+        if (yearFolderEntry && yearFolderEntry.id) {
+          DriveApp.getFolderById(yearFolderEntry.id).removeEditor(emailFila);
+          editorRemoved = true;
+        } else {
+          warnings.push('drive_access_no_revoked');
+          OperacionesLog.warn('panel-action: yearFolder no en registry — removeEditor skipped', {
+            email: emailFila, requestId: requestId
+          });
+        }
+      } catch (removeErr) {
+        warnings.push('drive_access_no_revoked');
+        OperacionesLog.warn('panel-action: removeEditor fallo', {
+          email: emailFila, err: String(removeErr), requestId: requestId
+        });
+      }
+    }
+
+    // Invoke refreshDocentes embedded — best-effort (SPOF 25).
+    let refreshFailed = false;
+    if (typeof refreshDocentes === 'function') {
+      try {
+        refreshDocentes();
+      } catch (refreshErr) {
+        refreshFailed = true;
+        warnings.push('dropdowns_stale');
+        OperacionesLog.warn('panel-action: refreshDocentes fallo — fila escrita igual', {
+          err: String(refreshErr), requestId: requestId
+        });
+      }
+    }
+
+    // Re-lookup post-write. SPOF 3: cliente recibe docente actualizada.
     const docenteActualizada = _findEquipoDocenteByEmail(email);
     if (!docenteActualizada) {
+      OperacionesLog.error('panel-action: docente desapareció post-write (caso edge raro)', {
+        email: email, requestId: requestId
+      });
       return { ok: false, reason: 'docente-not-found-post-update' };
     }
 
     OperacionesLog.info('panel-action: ok', {
-      accion: accion, email: email, requestId: requestId, warnings: warnings,
+      accion: accion,
+      email: email,
+      apellido: apellidoFila,
+      nombre: nombreFila,
+      estadoAnterior: estadoAnterior,
+      estadoNuevo: cfg.estadoNuevo,
+      row: rowIndex,
+      tokenInvalidated: tokenInvalidated,
+      editorRemoved: editorRemoved,
+      refreshFailed: refreshFailed,
+      warnings: warnings,
+      requestId: requestId,
       durationMs: (new Date()) - startedAt
     });
     return { ok: true, accion: accion, docente: docenteActualizada, warnings: warnings };
