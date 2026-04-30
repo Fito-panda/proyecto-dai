@@ -411,6 +411,135 @@ function testFase25DocGenUnit() {
 // Returns: { stepsPassed, stepsFailed, durationMs, log: [...] }.
 // ============================================================================
 
+// ============================================================================
+// testGetEquipoDocenteNoTokenLeak — paso 17.1 SPOF 29 verification (CRÍTICO).
+// Standalone, NO parte de runSmokeTests. Correr post-paso-17.1 commit para
+// verificar que el JSON retornado por getEquipoDocenteForPanel NO contiene
+// el token de ninguna docente (col 10 de 👥 Docentes).
+//
+// Si esta función PASA → SPOF 29 mitigado, paso 17.1 puede avanzar.
+// Si FALLA → bloqueante de seguridad, NO avanzar hasta fixear el whitelist.
+// ============================================================================
+
+function testGetEquipoDocenteNoTokenLeak() {
+  console.log('===== testGetEquipoDocenteNoTokenLeak — SPOF 29 verification =====');
+
+  const result = getEquipoDocenteForPanel();
+  console.log('Result completo:');
+  console.log(JSON.stringify(result, null, 2));
+
+  Guard.assert(result.ok === true,
+    'FAIL: getEquipoDocenteForPanel retornó ok:false. reason=' + (result.reason || ''));
+
+  const equipo = result.equipo;
+  Guard.assert(equipo && typeof equipo === 'object',
+    'FAIL: equipo no es objeto. Es: ' + (typeof equipo));
+  Guard.assert(Array.isArray(equipo.activas) && Array.isArray(equipo.licencia) && Array.isArray(equipo.bajas),
+    'FAIL: equipo no tiene los 3 arrays esperados. Keys: ' + Object.keys(equipo).join(','));
+
+  // SPOF 29 BLOQUEANTE: token NO debe estar en NINGUNA parte del JSON.
+  const jsonStr = JSON.stringify(equipo);
+  const allDocentes = equipo.activas.concat(equipo.licencia).concat(equipo.bajas);
+
+  // Check 1: ninguna docente tiene 'token' como key del objeto.
+  for (let i = 0; i < allDocentes.length; i++) {
+    const d = allDocentes[i];
+    const keys = Object.keys(d);
+    Guard.assert(keys.indexOf('token') === -1,
+      'FAIL SPOF 29 Check 1: docente "' + d.email + '" tiene key "token" expuesta. Keys: ' + keys.join(','));
+  }
+  console.log('PASS Check 1: ninguna de las ' + allDocentes.length + ' docentes tiene key "token".');
+
+  // Check 2: el JSON serializado NO contiene patrones UUID v4 (8-4-4-4-12 hex).
+  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const uuidMatch = jsonStr.match(uuidPattern);
+  Guard.assert(!uuidMatch,
+    'FAIL SPOF 29 Check 2: JSON contiene patrón UUID. Match: ' + (uuidMatch ? uuidMatch[0] : ''));
+  console.log('PASS Check 2: JSON NO contiene patrones UUID.');
+
+  // Check 3: el JSON serializado NO contiene la palabra 'token' (case-insensitive).
+  Guard.assert(!/token/i.test(jsonStr),
+    'FAIL SPOF 29 Check 3: JSON contiene la palabra "token".');
+  console.log('PASS Check 3: JSON NO contiene la palabra "token".');
+
+  // Check 4: docentes tienen los campos whitelisted esperados.
+  if (allDocentes.length > 0) {
+    const sample = allDocentes[0];
+    const expectedKeys = ['apellido', 'nombre', 'email', 'tipo', 'estado', 'fechaAlta_iso', 'fechaCambio_iso'];
+    expectedKeys.forEach(function(k) {
+      Guard.assert(k in sample,
+        'FAIL Check 4: docente sample no tiene key "' + k + '". Keys: ' + Object.keys(sample).join(','));
+    });
+    // Check 5: docente NO tiene keys que NO deberían estar (dni, notas, token).
+    const forbiddenKeys = ['dni', 'notas', 'token'];
+    forbiddenKeys.forEach(function(k) {
+      Guard.assert(!(k in sample),
+        'FAIL Check 5: docente sample tiene key prohibida "' + k + '"');
+    });
+    console.log('PASS Check 4-5: docente sample tiene los 7 campos whitelisted, sin dni/notas/token.');
+  }
+
+  // Check 6: counts esperados por estado (info, no assertion).
+  const totalDocentes = equipo.activas.length + equipo.licencia.length + equipo.bajas.length;
+  console.log('Total docentes leídas: ' + totalDocentes +
+    ' (Activas: ' + equipo.activas.length +
+    ', Licencia: ' + equipo.licencia.length +
+    ', Bajas: ' + equipo.bajas.length + ')');
+
+  console.log('===== testGetEquipoDocenteNoTokenLeak OK — SPOF 29 verificado =====');
+  return result;
+}
+
+// ============================================================================
+// testGetDeployVersion — paso 17.1 SPOF 36 verification.
+// Standalone. Verifica que getDeployVersion retorna string no vacío que se
+// pueda usar como cache key client-side.
+// ============================================================================
+
+function testGetDeployVersion() {
+  console.log('===== testGetDeployVersion — SPOF 36 verification =====');
+  const version = getDeployVersion();
+  console.log('Deploy version retornada: "' + version + '"');
+  Guard.assert(typeof version === 'string',
+    'FAIL: getDeployVersion no retorna string. Es: ' + (typeof version));
+  Guard.assert(version.length > 0,
+    'FAIL: getDeployVersion retorna string vacío.');
+  Guard.assert(version !== 'unknown' || true,
+    'INFO: version es "unknown" — probable contexto sin URL deployada (correr post-deploy si hace falta cachear).');
+  console.log('PASS: deploy version OK, length=' + version.length);
+  console.log('===== testGetDeployVersion OK =====');
+  return version;
+}
+
+// ============================================================================
+// testSubmitOperativoFromPanelInvalid — paso 17.1 verificación del orquestador.
+// Standalone. Invoca submitOperativoFromPanel con email INEXISTENTE para
+// validar que el wrapper retorna {ok:false, reason:'docente-not-found'} sin
+// tocar producción. NO muta el Sheet 👥 Docentes.
+// ============================================================================
+
+function testSubmitOperativoFromPanelInvalid() {
+  console.log('===== testSubmitOperativoFromPanelInvalid — orquestador no-mutating =====');
+  const fakeEmail = 'no-existe-test-' + Date.now() + '@example.com';
+  console.log('Email fake: ' + fakeEmail);
+  const result = submitOperativoFromPanel('marcarLicencia', fakeEmail);
+  console.log('Result: ' + JSON.stringify(result));
+  Guard.assert(result.ok === false,
+    'FAIL: esperaba ok:false con email inexistente. Recibí: ' + JSON.stringify(result));
+  Guard.assert(result.reason === 'docente-not-found',
+    'FAIL: esperaba reason="docente-not-found". Recibí: ' + result.reason);
+  console.log('PASS: orquestador retorna docente-not-found sin mutar producción.');
+
+  // Verificación bonus: accion invalida.
+  console.log('--- Bonus: accion inválida ---');
+  const result2 = submitOperativoFromPanel('accionFalsa', fakeEmail);
+  Guard.assert(result2.reason === 'invalid-accion',
+    'FAIL: esperaba reason="invalid-accion". Recibí: ' + result2.reason);
+  console.log('PASS: accion invalida retorna invalid-accion.');
+
+  console.log('===== testSubmitOperativoFromPanelInvalid OK =====');
+}
+
 function runCicloVidaTest() {
   const startedAt = new Date();
   const tag = 'CICLO-VIDA-' + startedAt.getTime();
