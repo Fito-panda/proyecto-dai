@@ -161,6 +161,261 @@
       padding: 20px 0 30px;
     }
     footer a { color: #2b4a6f; }
+
+    /* ========================================================================
+       Paso 17.2 — sección Equipo Docente.
+       Prefix .eq- para evitar colisión con selectores existentes (SPOF 48).
+       ======================================================================== */
+    .eq-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .eq-section-header h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+    }
+    .eq-sumar-btn {
+      width: auto;
+      margin: 0;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 38px;
+      white-space: nowrap;
+    }
+
+    .eq-group {
+      margin: 10px 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .eq-group-summary {
+      cursor: pointer;
+      padding: 10px 12px;
+      background: #f0f3f7;
+      font-size: 14px;
+      font-weight: 600;
+      color: #2b4a6f;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px;
+      user-select: none;
+      min-height: 44px;
+    }
+    .eq-group-summary::-webkit-details-marker { display: none; }
+    .eq-group-summary::before {
+      content: '▸';
+      display: inline-block;
+      transition: transform 0.15s ease;
+      color: #999;
+      font-size: 12px;
+    }
+    .eq-group[open] > .eq-group-summary::before {
+      transform: rotate(90deg);
+    }
+    .eq-group[open] > .eq-group-summary {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .eq-card-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      background: white;
+      border-radius: 0 0 8px 8px;
+    }
+    .eq-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      min-height: 56px;
+      transition: background 0.08s ease;
+    }
+    .eq-card:last-child { border-bottom: none; border-radius: 0 0 8px 8px; }
+    .eq-card:hover { background: #f7f9fb; }
+    .eq-card:active { background: #eef3f9; }
+    .eq-card.eq-card-loading {
+      opacity: 0.55;
+      pointer-events: none;
+      cursor: wait;
+    }
+    .eq-card-empty {
+      padding: 14px 12px;
+      color: #999;
+      font-size: 14px;
+      font-style: italic;
+      text-align: center;
+    }
+
+    .eq-avatar {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .eq-avatar-0 { background: #2b4a6f; }
+    .eq-avatar-1 { background: #2e8b57; }
+    .eq-avatar-2 { background: #c85a5a; }
+    .eq-avatar-3 { background: #d97706; }
+    .eq-avatar-4 { background: #7c3aed; }
+    .eq-avatar-5 { background: #0891b2; }
+    .eq-avatar-6 { background: #84cc16; }
+    .eq-avatar-7 { background: #db2777; }
+
+    .eq-card-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .eq-card-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #1a1a1a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .eq-card-meta {
+      font-size: 13px;
+      color: #777;
+      margin-top: 2px;
+    }
+    .eq-card-status-pending {
+      font-size: 13px;
+      font-weight: 500;
+      color: #d97706;
+      margin-top: 2px;
+    }
+
+    /* ========================================================================
+       Paso 17.2 — dialogs (bottom sheets) base.
+       Comportamiento detalle de animación + interacción es de 17.3 JS.
+       Acá solo estructura visual para que <dialog> renderee bien.
+       ======================================================================== */
+    .eq-dialog {
+      margin: 0 auto auto auto;
+      bottom: 0;
+      top: auto;
+      width: 100%;
+      max-width: 640px;
+      max-height: 70dvh;
+      border: none;
+      padding: 0;
+      border-radius: 16px 16px 0 0;
+      background: white;
+      overflow-y: auto;
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    }
+    .eq-dialog::backdrop {
+      background: rgba(0,0,0,0.5);
+    }
+    body:has(dialog.eq-dialog[open]) { overflow: hidden; }
+
+    .eq-dialog-header {
+      position: sticky;
+      top: 0;
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      z-index: 1;
+    }
+    .eq-dialog-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .eq-dialog-close {
+      background: none;
+      border: none;
+      font-size: 26px;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      line-height: 1;
+      color: #666;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .eq-dialog-close:hover { background: #f0f0f0; }
+    .eq-dialog-body {
+      padding: 16px;
+    }
+    .eq-dialog-body p { margin: 0 0 10px; }
+    .eq-dialog-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+    }
+    .eq-action-btn {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1.5px solid transparent;
+      background: white;
+      font-size: 16px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      min-height: 56px;
+    }
+    .eq-action-btn .eq-action-title {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .eq-action-btn .eq-action-hint {
+      display: block;
+      font-size: 13px;
+      color: #777;
+      font-weight: 400;
+    }
+    .eq-action-btn.eq-action-licencia {
+      border-color: #2b4a6f;
+      color: #2b4a6f;
+    }
+    .eq-action-btn.eq-action-licencia:hover { background: #eef3f9; }
+    .eq-action-btn.eq-action-volvio {
+      border-color: #2e8b57;
+      color: #2e8b57;
+    }
+    .eq-action-btn.eq-action-volvio:hover { background: #e8f4ec; }
+    .eq-action-btn.eq-action-baja {
+      border-color: #c85a5a;
+      color: #c85a5a;
+    }
+    .eq-action-btn.eq-action-baja:hover { background: #faecec; }
+    .eq-action-btn.eq-action-cancel {
+      border-color: #ccc;
+      color: #555;
+    }
+
+    /* Toast variantes — extiende el .toast existente con clases color */
+    .toast.toast-success { background: #2e8b57; }
+    .toast.toast-warn    { background: #d97706; }
+    .toast.toast-error   { background: #c85a5a; }
   </style>
 </head>
 <body>
@@ -176,6 +431,73 @@
     <h2>📋 Estado de tu configuración</h2>
     <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.formsActive ?> formularios activos<? if (ctx.cfgSummary.formsTotal && ctx.cfgSummary.formsTotal !== ctx.cfgSummary.formsActive) { ?><span style="color:#888;font-size:14px;">&nbsp;(de <?= ctx.cfgSummary.formsTotal ?> disponibles)</span><? } ?></div>
     <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.sectionCount ?> secciones configuradas</div>
+  </section>
+
+  <section>
+    <div class="eq-section-header">
+      <h2>👥 Equipo Docente</h2>
+      <button type="button" class="btn secondary eq-sumar-btn" id="btnSumar">+ Sumar nueva docente</button>
+    </div>
+
+    <details class="eq-group" open>
+      <summary class="eq-group-summary">
+        Activas (<?= ctx.equipo.activas.length ?>)
+      </summary>
+      <ul class="eq-card-list">
+      <? if (ctx.equipo.activas.length === 0) { ?>
+        <li class="eq-card-empty">Todavía no tenés docentes activas.</li>
+      <? } ?>
+      <? ctx.equipo.activas.forEach(function(d) { ?>
+        <li class="eq-card" data-email="<?= d.email ?>" data-estado="Activa">
+          <span class="eq-avatar eq-avatar-<?= _avatarColorClass(d) ?>"><?= _initial(d) ?></span>
+          <div class="eq-card-body">
+            <div class="eq-card-name"><?= _displayName(d) ?></div>
+            <div class="eq-card-meta"><?= d.tipo || '—' ?></div>
+          </div>
+        </li>
+      <? }); ?>
+      </ul>
+    </details>
+
+    <details class="eq-group" open>
+      <summary class="eq-group-summary">
+        De licencia (<?= ctx.equipo.licencia.length ?>)
+      </summary>
+      <ul class="eq-card-list">
+      <? if (ctx.equipo.licencia.length === 0) { ?>
+        <li class="eq-card-empty">Nadie de licencia ahora.</li>
+      <? } ?>
+      <? ctx.equipo.licencia.forEach(function(d) { ?>
+        <li class="eq-card" data-email="<?= d.email ?>" data-estado="Licencia">
+          <span class="eq-avatar eq-avatar-<?= _avatarColorClass(d) ?>"><?= _initial(d) ?></span>
+          <div class="eq-card-body">
+            <div class="eq-card-name"><?= _displayName(d) ?></div>
+            <div class="eq-card-meta"><?= d.tipo || '—' ?></div>
+          </div>
+        </li>
+      <? }); ?>
+      </ul>
+    </details>
+
+    <details class="eq-group">
+      <summary class="eq-group-summary">
+        Dadas de baja (<?= ctx.equipo.bajas.length ?>)
+      </summary>
+      <ul class="eq-card-list">
+      <? if (ctx.equipo.bajas.length === 0) { ?>
+        <li class="eq-card-empty">Sin bajas registradas.</li>
+      <? } ?>
+      <? ctx.equipo.bajas.forEach(function(d) { ?>
+        <li class="eq-card" data-email="<?= d.email ?>" data-estado="No disponible">
+          <span class="eq-avatar eq-avatar-<?= _avatarColorClass(d) ?>"><?= _initial(d) ?></span>
+          <div class="eq-card-body">
+            <div class="eq-card-name"><?= _displayName(d) ?></div>
+            <div class="eq-card-meta"><?= d.tipo || '—' ?></div>
+          </div>
+        </li>
+      <? }); ?>
+      </ul>
+    </details>
   </section>
 
   <section>
@@ -235,9 +557,24 @@
     Sistema DAI · <a href="https://proyectodai.com" target="_blank">proyectodai.com</a>
   </footer>
 
+  <!-- Paso 17.2 — bottom sheets (dialogs HTML5 nativos). Vacíos por default;
+       JS de 17.3 inyecta contenido + abre con .showModal() según interacción. -->
+  <dialog class="eq-dialog" id="detailSheet" aria-labelledby="detailSheetTitle"></dialog>
+  <dialog class="eq-dialog" id="actionsSheet" aria-labelledby="actionsSheetTitle"></dialog>
+  <dialog class="eq-dialog" id="confirmSheet" aria-labelledby="confirmSheetTitle"></dialog>
+
   <div id="toast" class="toast"></div>
 
 </div>
+
+<!-- Paso 17.2 — datos del equipo + deploy version inyectados server-side.
+     El JS de 17.3 los va a leer desde window.__docentes y window.__deployVersion.
+     SPOF 26+39: JSON.stringify con replace `</script>` para evitar break-out
+     si algún apellido tiene caracteres HTML especiales (cazada del agente). -->
+<script>
+  window.__docentes = <?!= JSON.stringify(ctx.equipo).replace(/<\/script>/g, '<\\/script>') ?>;
+  window.__deployVersion = <?!= JSON.stringify(ctx.deployVersion).replace(/<\/script>/g, '<\\/script>') ?>;
+</script>
 
 <script>
   function showToast(message) {

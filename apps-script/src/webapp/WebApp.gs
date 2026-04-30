@@ -49,6 +49,47 @@ function _normalizeEmail(s) {
 }
 
 /**
+ * _displayName(d) — paso 17.2 fallback SPOF 41. Si docente tiene apellido y/o
+ * nombre, los muestra. Si ambos vacíos, fallback al email username (parte
+ * antes de @). Caso seminal: 7 de 8 docentes test seed del paso 4 tienen
+ * solo email cargado por F00 onboarding sin parsear.
+ */
+function _displayName(d) {
+  const apellido = (d && d.apellido) || '';
+  const nombre = (d && d.nombre) || '';
+  if (apellido && nombre) return apellido + ', ' + nombre;
+  if (apellido) return apellido;
+  if (nombre) return nombre;
+  const email = (d && d.email) || '';
+  const username = email.split('@')[0];
+  return username || '(sin nombre)';
+}
+
+/**
+ * _initial(d) — paso 17.2. Primera letra para el avatar circular. Defensive
+ * SPOF 43: si todos los inputs son vacíos, retorna '?'.
+ */
+function _initial(d) {
+  const apellido = (d && d.apellido) || '';
+  const nombre = (d && d.nombre) || '';
+  const email = (d && d.email) || '';
+  const source = apellido || nombre || email.split('@')[0] || '?';
+  return source.charAt(0).toUpperCase() || '?';
+}
+
+/**
+ * _avatarColorClass(d) — paso 17.2. Hash determinístico por charCode mod 8
+ * sobre apellido (o nombre o email) para asignar 1 de 8 colores fijos al
+ * avatar. Mismo apellido siempre mismo color → consistencia visual entre
+ * renders. Retorna 0-7 (CSS clases .eq-avatar-0 a .eq-avatar-7).
+ */
+function _avatarColorClass(d) {
+  const source = (d && (d.apellido || d.nombre || d.email)) || 'X';
+  const ch = source.charCodeAt(0) || 0;
+  return ch % 8;
+}
+
+/**
  * _readEquipoDocente — lee 👥 Docentes con whitelist de columnas y agrupa
  * por Estado. Whitelist crítico (SPOF 29 bloqueante): NUNCA exponer col 9
  * (Notas) ni col 10 (Token) al frontend.
