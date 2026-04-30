@@ -43,7 +43,13 @@ const FormBuilder = {
     // aplicandose (operaciones safe que no afectan items o cols del Sheet).
     form.setTitle(cfg.title);
     if (cfg.description) form.setDescription(cfg.description);
-    form.setCollectEmail(false);
+    // Paso 15 plan v3 (2026-04-28 sesion 2 vuelta 10): activar VERIFIED para
+    // que el form auto-capture el email del usuario logueado al enviar.
+    // Habilita paso 16 handleAuthCheck que valida email capturado contra
+    // 👥 Docentes — solo registradas operan (cazada I snapshot-011).
+    // F00 onboarding NO toca (FormOnboardingBuilder.gs sigue setCollectEmail
+    // false — la directora ya esta logueada en el template).
+    form.setCollectEmail(true);
     form.setAllowResponseEdits(false);
     form.setShowLinkToRespondAgain(true);
 
