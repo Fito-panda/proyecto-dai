@@ -480,15 +480,135 @@ function handleDarDeBaja(e) {
 }
 
 /**
- * handlePedagogicoStub — stub paso 9 para los 5 forms pedagogicos/institucional
- * sin DocGen (F01/F02/F03/F04/F07). TODO paso 16: handleAuthCheck que verifica
- * email contra Docentes antes de procesar.
+ * _findDocenteByEmail(tab, email) — busca docente Activa en 👥 Docentes por
+ * email (case-insensitive). Retorna { row, apellido, nombre, email, estado } o null.
+ *
+ * Filter Estado === 'Activa' explicito — handleAuthCheck (paso 16 plan v3)
+ * NO autoriza Estado=Licencia ni 'No disponible' (decision Fito vuelta 11).
+ *
+ * Defensive: tab vacia, email vacio, sin matches → null sin throw.
  */
-function handlePedagogicoStub(e, formId) {
-  OperacionesLog.info('handlePedagogico recibido (stub paso 9)', {
+function _findDocenteByEmail(tab, email) {
+  const targetEmail = String(email || '').trim().toLowerCase();
+  if (!targetEmail) return null;
+
+  const lastRow = tab.getLastRow();
+  if (lastRow < 3) return null;
+
+  // Lee 6 cols (Apellido, Nombre, DNI, Email, Tipo, Estado) data rows
+  const range = tab.getRange(3, 1, lastRow - 2, 6).getValues();
+
+  for (let i = 0; i < range.length; i++) {
+    const rowEmail = String(range[i][3] || '').trim().toLowerCase();
+    if (rowEmail !== targetEmail) continue;
+    const estado = String(range[i][5] || '').trim();
+    if (estado !== 'Activa') continue;
+    return {
+      row: 3 + i,
+      apellido: String(range[i][0] || '').trim(),
+      nombre: String(range[i][1] || '').trim(),
+      email: String(range[i][3] || '').trim(),
+      estado: estado
+    };
+  }
+  return null;
+}
+
+/**
+ * handleAuthCheck(e, formId) — paso 16/20 plan v3 baja/suplentes-docente
+ * (2026-04-30 sesion 2 vuelta 11). Reemplaza handlePedagogicoStub.
+ *
+ * Valida que la submission viene de una docente Activa (lookup en 👥 Docentes
+ * por email auto-capturado en col 'Email Address' por setCollectEmail(true) —
+ * paso 15). Si autorizada → log INFO + deja fila. Si NO autorizada → log ERROR
+ * + borra fila del Sheet de respuestas (decision plan v3 §11 + Fito vuelta 11).
+ *
+ * Aplica a los 5 forms pedagogico/institucional sin DocGen:
+ *   F01 Planificacion semanal/quincenal
+ *   F02 Registro de clase
+ *   F03 Seguimiento de alumno
+ *   F04 Evaluacion formativa
+ *   F07 Novedades diarias
+ *
+ * NO aplica a forms formales (F05/F06/F08/F09/F13/F14 — DocGen propio) ni a
+ * operativos (F-baja-* — admin-only por contexto del Panel). Anotado deuda
+ * v1.1: extender handleAuthCheck a formales + operativos para defensa
+ * en profundidad.
+ *
+ * Defensive guard L1 (feedback sesion vieja): TemplateResolver.resolve no null
+ * + tab no null + e.namedValues['Email Address'] populado.
+ *
+ * Honor system: el campo 'Email Address' es auto-capturado del usuario
+ * logueado (comportamiento VERIFIED-like de setCollectEmail(true) en cuenta
+ * Gmail comun — paso 15 vuelta 10 confirmado empiricamente). El usuario PUEDE
+ * editarlo manualmente antes de submit, pero el grupo cerrado de 7-10
+ * personas conocidas en escuela rural mitiga el riesgo. Cazada I plan v3
+ * "solo registradas operan" + Cazada G "puerta no muro" coherente.
+ */
+function handleAuthCheck(e, formId) {
+  // L1 — Defensive guard.
+  const ss = TemplateResolver.resolve('👥 Docentes');
+  if (!ss) {
+    console.error('handleAuthCheck: TemplateResolver.resolve fallo. Correr installSubmitDispatcher.');
+    throw new Error('handleAuthCheck: template no resuelve — installSubmitDispatcher requerido');
+  }
+  const tab = ss.getSheetByName('👥 Docentes');
+  if (!tab) {
+    console.error('handleAuthCheck: pestaña 👥 Docentes no existe en template.');
+    throw new Error('handleAuthCheck: pestaña 👥 Docentes no existe');
+  }
+
+  const namedValues = (e && e.namedValues) || {};
+  const email = _firstNonEmpty(namedValues['Email Address']);
+
+  if (!email) {
+    OperacionesLog.error('handleAuthCheck: email vacio (setCollectEmail no populó?) — fila NO borrada', {
+      formId: formId,
+      namedValues: namedValues
+    });
+    return;
+  }
+
+  // Lookup docente Activa por email (case-insensitive).
+  const docente = _findDocenteByEmail(tab, email);
+
+  if (docente) {
+    OperacionesLog.info('handleAuthCheck OK — submission autorizada', {
+      formId: formId,
+      email: docente.email,
+      apellido: docente.apellido,
+      nombre: docente.nombre,
+      row: docente.row
+    });
+    return;
+  }
+
+  // No autorizada — borrar fila del Sheet de respuestas (decision plan v3 §11).
+  // Defensive: si deleteRow falla por permisos o cualquier motivo, log WARN
+  // pero NO throw (la fila quedaria como deuda visual, OperacionesLog tiene
+  // el ERROR para auditoria).
+  const responseSheet = (e && e.range) ? e.range.getSheet() : null;
+  const rowIndex = (e && e.range) ? e.range.getRow() : null;
+
+  let deletedRow = false;
+  if (responseSheet && rowIndex) {
+    try {
+      responseSheet.deleteRow(rowIndex);
+      deletedRow = true;
+    } catch (deleteErr) {
+      OperacionesLog.warn('handleAuthCheck: deleteRow fallo — fila NO autorizada queda en Sheet (deuda visual)', {
+        formId: formId, email: email, rowIndex: rowIndex, err: String(deleteErr)
+      });
+    }
+  }
+
+  OperacionesLog.error('handleAuthCheck: submission NO autorizada — fila ' + (deletedRow ? 'borrada' : 'NO borrada'), {
     formId: formId,
-    sheetName: e.range.getSheet().getName(),
-    rowIndex: e.range.getRow()
+    emailTipeado: email,
+    rowIndex: rowIndex,
+    sheetName: responseSheet ? responseSheet.getName() : null,
+    deletedRow: deletedRow,
+    razon: 'email no encontrado en 👥 Docentes con Estado=Activa'
   });
 }
 
@@ -503,9 +623,9 @@ function _delegateToFormalSubmit(formId) {
   };
 }
 
-function _delegateToPedagogicoStub(formId) {
+function _delegateToAuthCheck(formId) {
   return function(e) {
-    handlePedagogicoStub(e, formId);
+    handleAuthCheck(e, formId);
   };
 }
 
@@ -516,7 +636,7 @@ function _delegateToPedagogicoStub(formId) {
 // ============================================================================
 
 const DISPATCH_TABLE = {
-  // 4 forms operativos del Panel Directora (paso 8 plan v3) — stubs.
+  // 4 forms operativos del Panel Directora (paso 8 plan v3) — handlers reales.
   'SHEET-Sumar-Docente-2026':        handleSumarDocente,
   'SHEET-Marcar-Licencia-2026':      handleMarcarLicencia,
   'SHEET-Volvio-Licencia-2026':      handleVolvioLicencia,
@@ -531,13 +651,14 @@ const DISPATCH_TABLE = {
   'SHEET-Precarga-SGE-2026':         _delegateToFormalSubmit('F13'),
   'SHEET-Legajos-2026':              _delegateToFormalSubmit('F14'),
 
-  // 5 forms pedagogicos/institucional sin DocGen — stubs hasta paso 16
-  // (handleAuthCheck).
-  'SHEET-Planificaciones-2026':      _delegateToPedagogicoStub('F01'),
-  'SHEET-Registro-Clases-2026':      _delegateToPedagogicoStub('F02'),
-  'SHEET-Seguimiento-Alumnos-2026':  _delegateToPedagogicoStub('F03'),
-  'SHEET-Evaluaciones-2026':         _delegateToPedagogicoStub('F04'),
-  'SHEET-Novedades-Diarias-2026':    _delegateToPedagogicoStub('F07')
+  // 5 forms pedagogicos/institucional sin DocGen — handleAuthCheck (paso 16
+  // plan v3) valida email contra 👥 Docentes activas. Si NO autorizada
+  // → borra fila del Sheet de respuestas + log ERROR.
+  'SHEET-Planificaciones-2026':      _delegateToAuthCheck('F01'),
+  'SHEET-Registro-Clases-2026':      _delegateToAuthCheck('F02'),
+  'SHEET-Seguimiento-Alumnos-2026':  _delegateToAuthCheck('F03'),
+  'SHEET-Evaluaciones-2026':         _delegateToAuthCheck('F04'),
+  'SHEET-Novedades-Diarias-2026':    _delegateToAuthCheck('F07')
 };
 
 // ============================================================================
