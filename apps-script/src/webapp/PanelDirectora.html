@@ -552,24 +552,28 @@
     .toast.toast-warn    { background: #d97706; }
     .toast.toast-error   { background: #c85a5a; }
 
-    /* Sesión 5 chunk G — sección "Recordatorios sugeridos" */
-    .recordatorios-list {
-      list-style: none;
-      padding: 0;
-      margin: 12px 0;
-    }
-    .recordatorios-list li {
-      padding: 10px 12px;
-      margin-bottom: 6px;
+    /* Sesión 5 chunk G UX v2 — sección "Recordatorios sugeridos".
+       Cada .recordatorio-item es: label + botón "Agregar a Calendar". */
+    .recordatorio-item {
+      padding: 12px;
+      margin-bottom: 10px;
       background: #f8f8f8;
       border-left: 3px solid #2b4a6f;
       border-radius: 4px;
+    }
+    .recordatorio-label {
       font-size: 14px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    .recordatorio-item .btn {
+      width: 100%;
+      margin: 0;
     }
     .recordatorios-hint {
       font-size: 12px;
       color: #666;
-      margin: 8px 0 0;
+      margin: 12px 0 0;
       line-height: 1.5;
     }
 
@@ -776,19 +780,30 @@
     <p class="hint" style="margin:6px 0 0;">Genera vista imprimible con el QR grande del panel docentes para pegar en la sala.</p>
   </section>
 
-  <!-- Sesión 5 chunk G — sección "Recordatorios sugeridos".
-       NO usa Calendar API. Solo provee texto copy-pasteable para que la
-       directora arme los eventos UNA vez en su Google Calendar personal. -->
+  <!-- Sesión 5 chunk G UX v2 — sección "Recordatorios sugeridos".
+       Usa URLs públicas de Google Calendar (calendar.google.com/calendar/r/eventedit?...)
+       que abren el evento PRE-ARMADO con título + recurrencia configurada.
+       1 click por evento → Calendar abierto → "Guardar". Cero scope OAuth nuevo. -->
   <section>
     <h2>📅 Recordatorios sugeridos</h2>
-    <p class="hint">Cargá estos en tu Google Calendar UNA vez. El sistema NO manda recordatorios — pero podés copiarlos y pegarlos en tu calendario personal para que te avise.</p>
-    <ul class="recordatorios-list">
-      <li>📆 Día 25 de cada mes — pre-carga SGE (Ministerio Córdoba)</li>
-      <li>📆 Diciembre — armá legajos con anticipación al cierre de año</li>
-      <li>📆 Viernes 17h — armá planificación de la próxima semana</li>
-    </ul>
-    <button class="btn secondary" onclick="copiarRecordatorios()">📋 Copiar todos</button>
-    <p class="recordatorios-hint">¿Querés más recordatorios? Andá a tu Google Calendar y armálos vos misma según tu ritmo.</p>
+    <p class="hint">Tocá un botón y se abre Google Calendar con el evento ya armado — solo le das "Guardar". El sistema NO manda recordatorios — los recordatorios viven en tu Calendar personal.</p>
+
+    <div class="recordatorio-item">
+      <div class="recordatorio-label">📆 Día 25 de cada mes — pre-carga SGE (Ministerio Córdoba)</div>
+      <a class="btn secondary" href="https://calendar.google.com/calendar/r/eventedit?text=Pre-carga+SGE+(Ministerio+C%C3%B3rdoba)&details=Recordatorio+del+sistema+DAI%3A+revisar+y+enviar+pre-carga+SGE&recur=RRULE:FREQ%3DMONTHLY%3BBYMONTHDAY%3D25" target="_blank" rel="noopener">+ Agregar a mi Google Calendar</a>
+    </div>
+
+    <div class="recordatorio-item">
+      <div class="recordatorio-label">📆 Diciembre — armá legajos con anticipación al cierre de año</div>
+      <a class="btn secondary" href="https://calendar.google.com/calendar/r/eventedit?text=Armar+legajos+(cierre+de+a%C3%B1o)&details=Recordatorio+del+sistema+DAI%3A+armar+legajos+con+anticipaci%C3%B3n+al+cierre+de+a%C3%B1o&recur=RRULE:FREQ%3DYEARLY%3BBYMONTH%3D12%3BBYMONTHDAY%3D1" target="_blank" rel="noopener">+ Agregar a mi Google Calendar</a>
+    </div>
+
+    <div class="recordatorio-item">
+      <div class="recordatorio-label">📆 Viernes 17h — armá planificación de la próxima semana</div>
+      <a class="btn secondary" href="https://calendar.google.com/calendar/r/eventedit?text=Planificaci%C3%B3n+pr%C3%B3xima+semana&details=Recordatorio+del+sistema+DAI%3A+armar+planificaci%C3%B3n+de+la+pr%C3%B3xima+semana&recur=RRULE:FREQ%3DWEEKLY%3BBYDAY%3DFR" target="_blank" rel="noopener">+ Agregar a mi Google Calendar</a>
+    </div>
+
+    <p class="recordatorios-hint">Cada botón abre Calendar con el evento pre-armado. Si querés cambiar la fecha o recurrencia, podés editar antes de guardar. ¿Querés más recordatorios? Andá a tu Google Calendar y armálos vos misma según tu ritmo.</p>
   </section>
 
   <section>
@@ -935,28 +950,10 @@
     }, 50);
   }
 
-  /**
-   * copiarRecordatorios — botón "📋 Copiar todos" de la sección
-   * "📅 Recordatorios sugeridos". Copia 3 items al clipboard para que la
-   * directora los pegue UNO POR UNO en su Google Calendar personal.
-   * NO usa Calendar API (decisión sesión 5: cero scope creep).
-   */
-  function copiarRecordatorios() {
-    var items = [
-      'Día 25 de cada mes — pre-carga SGE (Ministerio Córdoba)',
-      'Diciembre — armá legajos con anticipación al cierre de año',
-      'Viernes 17h — armá planificación de la próxima semana'
-    ];
-    var texto = items.join('\n');
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(texto).then(
-        function() { showToast('✓ Copiados. Pegá uno por evento en tu Google Calendar.'); },
-        function() { window.prompt('Copiá estos recordatorios:', texto); }
-      );
-    } else {
-      window.prompt('Copiá estos recordatorios:', texto);
-    }
-  }
+  // Sesión 5 chunk G UX v2: eliminada función copiarRecordatorios() — la
+  // sección Recordatorios usa ahora links directos a Google Calendar
+  // (calendar.google.com/calendar/r/eventedit?...) en lugar de copy-paste
+  // manual. Cada link abre Calendar con el evento PRE-ARMADO + recurrencia.
 </script>
 
 <!-- ==========================================================================
