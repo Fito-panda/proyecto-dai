@@ -176,6 +176,47 @@
     footer a { color: #2b4a6f; }
 
     /* ========================================================================
+       Paso 18 — sección "Mi equipo hoy" (resumen numérico arriba del detalle).
+       ======================================================================== */
+    .eq-resumen-section { margin-bottom: 28px; }
+    .eq-resumen-section h2 { margin: 0 0 12px 0; font-size: 18px; color: #2b4a6f; }
+    .eq-resumen-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .eq-resumen-card {
+      flex: 1;
+      background: #f7f9fb;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .eq-resumen-num {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2b4a6f;
+      line-height: 1.1;
+    }
+    .eq-resumen-label {
+      font-size: 13px;
+      color: #555;
+      margin-top: 4px;
+    }
+    .eq-resumen-link {
+      display: inline-block;
+      color: #2b4a6f;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 0;
+    }
+    .eq-resumen-link:hover { text-decoration: underline; }
+    @media (max-width: 480px) {
+      .eq-resumen-row { flex-direction: column; gap: 8px; }
+    }
+
+    /* ========================================================================
        Paso 17.2 — sección Equipo Docente.
        Prefix .eq- para evitar colisión con selectores existentes (SPOF 48).
        ======================================================================== */
@@ -446,7 +487,26 @@
     <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.sectionCount ?> secciones configuradas</div>
   </section>
 
-  <section>
+  <section class="eq-resumen-section">
+    <h2>👥 Mi equipo hoy</h2>
+    <div class="eq-resumen-row">
+      <div class="eq-resumen-card">
+        <div class="eq-resumen-num"><?= ctx.equipo && ctx.equipo.activas ? ctx.equipo.activas.length : 0 ?></div>
+        <div class="eq-resumen-label">Activas</div>
+      </div>
+      <div class="eq-resumen-card">
+        <div class="eq-resumen-num"><?= ctx.equipo && ctx.equipo.licencia ? ctx.equipo.licencia.length : 0 ?></div>
+        <div class="eq-resumen-label">De licencia</div>
+      </div>
+      <div class="eq-resumen-card">
+        <div class="eq-resumen-num"><?= ctx.equipo && ctx.equipo.bajas ? ctx.equipo.bajas.length : 0 ?></div>
+        <div class="eq-resumen-label">Dadas de baja</div>
+      </div>
+    </div>
+    <a href="#equipoDocente" class="eq-resumen-link" id="btnVerDetalle">Ver detalle ↓</a>
+  </section>
+
+  <section id="equipoDocente">
     <div class="eq-section-header">
       <h2>👥 Equipo Docente</h2>
       <button type="button" class="btn secondary eq-sumar-btn" id="btnSumar">+ Sumar nueva docente</button>
@@ -1505,12 +1565,19 @@
   function _updateGroupCounts() {
     var groups = document.querySelectorAll('.eq-group');
     var labels = ['Activas', 'De licencia', 'Dadas de baja'];
+    var counts = [0, 0, 0];
     groups.forEach(function(g, i) {
       var ul = g.querySelector('.eq-card-list');
       var summary = g.querySelector('.eq-group-summary');
       if (!ul || !summary) return;
       var cnt = ul.querySelectorAll('.eq-card').length;
+      counts[i] = cnt;
       summary.textContent = labels[i] + ' (' + cnt + ')';
+    });
+    // Sync resumen "Mi equipo hoy" (PR-1).
+    var nums = document.querySelectorAll('.eq-resumen-num');
+    nums.forEach(function(n, i) {
+      if (counts[i] !== undefined) n.textContent = counts[i];
     });
   }
 
@@ -1701,6 +1768,20 @@
   var btnSumar = document.getElementById('btnSumar');
   if (btnSumar) {
     btnSumar.addEventListener('click', function() { showSumarSheet(); });
+  }
+
+  // Botón Ver detalle del resumen "Mi equipo hoy" — paso 18.
+  var btnVerDetalle = document.getElementById('btnVerDetalle');
+  if (btnVerDetalle) {
+    btnVerDetalle.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = document.getElementById('equipoDocente');
+      if (!target) return;
+      // Auto-expand sección Bajas (3er <details>) si está colapsada (PR-3).
+      var groups = target.querySelectorAll('.eq-group');
+      if (groups[2] && !groups[2].open) groups[2].open = true;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   // ============================================================
