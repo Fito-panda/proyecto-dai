@@ -594,9 +594,12 @@ function runCicloVidaTest() {
         'Step 1: email col 4 mismatch');
       Guard.assert(String(row[5]).trim() === 'Activa',
         'Step 1: estado col 6 debe ser Activa, es "' + row[5] + '"');
-      Guard.assert(String(row[9] || '').trim().length === 36,
-        'Step 1: token col 10 debe tener 36 chars (UUID v4), es "' + row[9] + '"');
-      console.log('PASS Step 1: fila ' + fila + ' Activa + Token UUID');
+      // Sesión 5 chunk F: col 10 (Token) deprecated en modelo C — debe quedar
+      // vacía en filas nuevas. Schema 10 cols mantenido para no romper
+      // idempotency con Sheets en producción.
+      Guard.assert(String(row[9] || '').trim() === '',
+        'Step 1: col 10 debe quedar vacia (modelo C, sin token), es "' + row[9] + '"');
+      console.log('PASS Step 1: fila ' + fila + ' Activa + col 10 vacia (modelo C)');
       log.push({ step: 1, name: 'Sumar', pass: true, row: fila });
       stepsPassed++;
     } catch (err) {
@@ -671,9 +674,11 @@ function runCicloVidaTest() {
       const row = tab.getRange(fila, 1, 1, 10).getValues()[0];
       Guard.assert(String(row[5]).trim() === 'No disponible',
         'Step 4: estado col 6 debe ser No disponible, es "' + row[5] + '"');
+      // Sesión 5 chunk F: col 10 (Token) deprecated en modelo C — sigue vacía
+      // post-baja (ya estaba vacía desde el alta). Assertion mantiene cobertura.
       Guard.assert(String(row[9] || '').trim() === '',
-        'Step 4: token col 10 debe quedar vacio post-invalidate, es "' + row[9] + '"');
-      console.log('PASS Step 4: Estado=No disponible + Token vacio');
+        'Step 4: col 10 debe quedar vacia (modelo C), es "' + row[9] + '"');
+      console.log('PASS Step 4: Estado=No disponible + col 10 vacia');
       log.push({ step: 4, name: 'DarDeBaja', pass: true, row: fila });
       stepsPassed++;
     } catch (err) {
