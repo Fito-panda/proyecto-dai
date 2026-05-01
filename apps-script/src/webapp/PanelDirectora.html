@@ -754,6 +754,26 @@
     toastEl.setAttribute('aria-live', 'polite');
   }
   var _toastTimer = null;
+  var _toastDismissHandler = null;
+  var _toastShownAt = null;
+  var _toastDurationMs = null;
+
+  // Cleanup centralizado del toast — fixea AD-1/AD-2/AD-3 (listener huérfano + race tap-vs-timer).
+  function _dismissToast() {
+    if (!toastEl) return;
+    if (_toastTimer) {
+      clearTimeout(_toastTimer);
+      _toastTimer = null;
+    }
+    if (_toastDismissHandler) {
+      toastEl.removeEventListener('click', _toastDismissHandler);
+      _toastDismissHandler = null;
+    }
+    toastEl.classList.remove('show');
+    toastEl.style.cursor = '';
+    _toastShownAt = null;
+    _toastDurationMs = null;
+  }
 
   // SPOF 97 fix — helpers para error inline dentro de dialogs.
   // El toast queda enterrado bajo el top-layer de <dialog>.showModal(), así que
@@ -778,27 +798,26 @@
   function eqToast(msg, variant, opts) {
     if (!toastEl) return;
     opts = opts || {};
+    // Cleanup del toast anterior antes de mostrar el nuevo (AD-1/AD-3).
+    _dismissToast();
     toastEl.textContent = String(msg || '');
     toastEl.className = 'toast show';
     if (variant === 'success') toastEl.classList.add('toast-success');
     else if (variant === 'warn') toastEl.classList.add('toast-warn');
     else if (variant === 'error') toastEl.classList.add('toast-error');
-    if (_toastTimer) clearTimeout(_toastTimer);
+
+    // Tiempo diferenciado: success 3s (con evidencia visual paralela), warn/error 6s (info crítica).
+    var ms = opts.duration || (variant === 'success' ? 3000 : 6000);
+
     if (opts.persistent) {
-      // Tap-dismiss only.
+      // Persistent: tap-dismiss + auto-dismiss tras `ms` (AD-4 fix).
       toastEl.style.cursor = 'pointer';
-      var dismiss = function() {
-        toastEl.classList.remove('show');
-        toastEl.removeEventListener('click', dismiss);
-        toastEl.style.cursor = '';
-      };
-      toastEl.addEventListener('click', dismiss);
-    } else {
-      var ms = opts.duration || 4000;
-      _toastTimer = setTimeout(function() {
-        toastEl.classList.remove('show');
-      }, ms);
+      _toastDismissHandler = function() { _dismissToast(); };
+      toastEl.addEventListener('click', _toastDismissHandler);
     }
+    _toastShownAt = Date.now();
+    _toastDurationMs = ms;
+    _toastTimer = setTimeout(function() { _dismissToast(); }, ms);
   }
 
   // ============================================================
@@ -1699,11 +1718,22 @@
           .withSuccessHandler(function(res) {
             if (res && res.ok && res.equipo) {
               window.__docentes = res.equipo;
-              eqToast('Recargá la página para ver el estado actualizado.', 'warn', { persistent: true });
+              eqToast('Recargá la página para ver el estado actualizado.', 'warn', { persistent: true, duration: 10000 });
             }
           })
           .withFailureHandler(function() {})
           .getEquipoDocenteForPanel();
+      }
+    }
+    // AD-6 fix — toast con timer pausado en background mobile.
+    // Al volver visible, calcular tiempo restante y resetear timer (o dismiss si ya venció).
+    if (!document.hidden && _toastShownAt && _toastTimer) {
+      var toastElapsed = Date.now() - _toastShownAt;
+      if (toastElapsed >= _toastDurationMs) {
+        _dismissToast();
+      } else {
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(function() { _dismissToast(); }, _toastDurationMs - toastElapsed);
       }
     }
   });
@@ -1728,7 +1758,7 @@
     if (pendingRaw) {
       var pending = JSON.parse(pendingRaw);
       if (pending && pending.timestamp && (Date.now() - pending.timestamp) < 60000) {
-        eqToast('Tu acción anterior puede haber quedado en el aire. Revisá si ' + (pending.payload && pending.payload.email || 'esa docente') + ' quedó como esperabas.', 'warn', { persistent: true });
+        eqToast('Tu acción anterior puede haber quedado en el aire. Revisá si ' + (pending.payload && pending.payload.email || 'esa docente') + ' quedó como esperabas.', 'warn', { persistent: true, duration: 10000 });
       }
       sessionStorage.removeItem('eq:pendingMutate');
     }
@@ -1739,7 +1769,7 @@
     google.script.run
       .withSuccessHandler(function(serverVersion) {
         if (serverVersion && String(serverVersion) !== String(window.__deployVersion)) {
-          eqToast('Hay una versión nueva del panel. Recargá la página.', 'warn', { persistent: true });
+          eqToast('Hay una versión nueva del panel. Recargá la página.', 'warn', { persistent: true, duration: 10000 });
         }
       })
       .withFailureHandler(function() { /* silent */ })
