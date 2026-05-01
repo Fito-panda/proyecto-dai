@@ -189,51 +189,129 @@ function _resetDeployVersionCache() {
   return 'cache webapp:deployVersion limpiado';
 }
 
+/**
+ * _resolveAuthByEmail — Modelo C (sesión 5 2026-05-01 chunk B).
+ *
+ * Identifica al usuario por su login Google + matchea contra 👥 Docentes Activa
+ * o Licencia. Cazada I plan v3 "solo registradas operan" — la directora
+ * también está sembrada en 👥 Docentes (SetupOrchestrator._seedDocentesFromOnboarding),
+ * por lo cual NO chequeamos contra cfg.director_email — director_email queda
+ * solo para datos no-auth (greeting, escuela).
+ *
+ * Pre-condición: oauthScope userinfo.email declarado en appsscript.json
+ * (Chunk A). Sin ese scope, getEmail() retorna vacío en cuenta Gmail común
+ * cross-account.
+ *
+ * Pre-condición: deploy en modo "Execute as: User accessing the web app".
+ * En modo "Me" getActiveUser retorna owner siempre (rompe identificación
+ * cross-account).
+ *
+ * Retorna shape compatible con TokenService.validate:
+ *   { authorized, docente: {apellido, nombre, email, estado} | null, reason }
+ *
+ * Valores posibles de reason:
+ *   'session-error'         — Session.getActiveUser tiró excepción
+ *   'email-empty'           — getEmail() retornó vacío (scope/permisos)
+ *   'no-template'           — TemplateResolver no resuelve container
+ *   'no-tab'                — pestaña 👥 Docentes no existe
+ *   'empty-tab'             — pestaña existe sin data rows
+ *   'estado-no-disponible'  — email matcheado pero Estado=No disponible
+ *   'email-not-in-docentes' — email no encontrado en 👥 Docentes
+ *   null                    — autorizada (Activa o Licencia)
+ */
+function _resolveAuthByEmail() {
+  let userEmail = '';
+  try {
+    userEmail = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  } catch (err) {
+    return { authorized: false, docente: null, reason: 'session-error' };
+  }
+  if (!userEmail) {
+    return { authorized: false, docente: null, reason: 'email-empty' };
+  }
+
+  const ss = TemplateResolver.resolve('👥 Docentes');
+  if (!ss) return { authorized: false, docente: null, reason: 'no-template' };
+  const tab = ss.getSheetByName('👥 Docentes');
+  if (!tab) return { authorized: false, docente: null, reason: 'no-tab' };
+  const lastRow = tab.getLastRow();
+  if (lastRow < 3) return { authorized: false, docente: null, reason: 'empty-tab' };
+
+  // Lee 6 cols (Apellido, Nombre, DNI, Email, Tipo, Estado) data rows.
+  // NO cols 7-10 (Fechas, Notas, Token) — irrelevantes para auth.
+  const range = tab.getRange(3, 1, lastRow - 2, 6).getValues();
+  for (let i = 0; i < range.length; i++) {
+    const rowEmail = String(range[i][3] || '').trim().toLowerCase();
+    if (rowEmail !== userEmail) continue;
+    const estado = String(range[i][5] || '').trim();
+    const docente = {
+      apellido: String(range[i][0] || '').trim(),
+      nombre: String(range[i][1] || '').trim(),
+      email: String(range[i][3] || '').trim(),
+      estado: estado
+    };
+    if (estado === 'No disponible') {
+      return { authorized: false, docente: docente, reason: 'estado-no-disponible' };
+    }
+    // Activa Y Licencia autorizadas (mismo criterio que TokenService.validate).
+    return { authorized: true, docente: docente, reason: null };
+  }
+  return { authorized: false, docente: null, reason: 'email-not-in-docentes' };
+}
+
 function doGet(e) {
   const params = (e && e.parameter) || {};
   const role = params.role || '';
   const isAdmin = role === 'admin';
 
-  // Paso 6 plan v3 (2026-04-27): rama admin requiere ?token= valido contra
-  // 👥 Docentes via TokenService.validate. Si no autorizado: render
-  // PanelInvalido. Si autorizado: PanelDirectora con saludo personalizado.
-  // PanelDocentes (sin role=admin) sigue siendo Anyone-with-link sin auth.
-  if (isAdmin) {
-    const token = String(params.token || '').trim();
-    const auth = (typeof TokenService !== 'undefined' && TokenService.validate)
-      ? TokenService.validate(token)
-      : { authorized: false, docente: null, reason: 'tokenservice-unavailable' };
-
-    if (!auth.authorized) {
-      const tmpl = HtmlService.createTemplateFromFile('src/webapp/PanelInvalido');
-      tmpl.reason = auth.reason;
-      tmpl.docente = auth.docente; // null o {apellido,nombre,email,estado}
-      return tmpl.evaluate()
-        .setTitle('DAI — Acceso no disponible')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-    }
-
-    // Autorizado: PanelDirectora con ctx extendido
-    const template = HtmlService.createTemplateFromFile('src/webapp/PanelDirectora');
-    template.ctx = WebApp._getContext(true);
-    template.ctx.tokenAuth = auth; // {authorized:true, docente:{...}, reason:null}
-    // greetingName: nombre primero, fallback apellido, fallback ctx.directorName
-    template.ctx.greetingName = auth.docente.nombre
-      || auth.docente.apellido
-      || template.ctx.directorName
-      || template.ctx.schoolName;
+  // Default sin role: PanelDocentes (sin auth, sigue siendo Anyone-with-link).
+  if (!isAdmin) {
+    const template = HtmlService.createTemplateFromFile('src/webapp/PanelDocentes');
+    template.ctx = WebApp._getContext(false);
     return template.evaluate()
-      .setTitle('DAI — Panel Directora')
+      .setTitle('DAI — Escuela')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
-  // Default: PanelDocentes (sin auth, mismo comportamiento previo)
-  const template = HtmlService.createTemplateFromFile('src/webapp/PanelDocentes');
-  template.ctx = WebApp._getContext(false);
+  // Admin: Modelo C primero (Session.getActiveUser + match 👥 Docentes Activa).
+  // Si falla Y hay ?token= en la URL → fallback al modelo viejo (TokenService).
+  // FALLBACK TEMPORAL durante chunks B+C — eliminado en chunk D después de
+  // test empírico cross-account confirmado.
+  let auth = _resolveAuthByEmail();
+  let authPath = 'email';
+  if (!auth.authorized && params.token) {
+    const token = String(params.token).trim();
+    const tokenAuth = (typeof TokenService !== 'undefined' && TokenService.validate)
+      ? TokenService.validate(token)
+      : { authorized: false, docente: null, reason: 'tokenservice-unavailable' };
+    if (tokenAuth.authorized) {
+      auth = tokenAuth;
+      authPath = 'token-fallback';
+    }
+  }
+
+  if (!auth.authorized) {
+    const tmpl = HtmlService.createTemplateFromFile('src/webapp/PanelInvalido');
+    tmpl.reason = auth.reason;
+    tmpl.docente = auth.docente;
+    return tmpl.evaluate()
+      .setTitle('DAI — Acceso no disponible')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  // Autorizada: PanelDirectora con ctx extendido.
+  const template = HtmlService.createTemplateFromFile('src/webapp/PanelDirectora');
+  template.ctx = WebApp._getContext(true);
+  template.ctx.tokenAuth = auth;
+  template.ctx.authPath = authPath; // 'email' | 'token-fallback' — log/debug
+  template.ctx.greetingName = auth.docente.nombre
+    || auth.docente.apellido
+    || template.ctx.directorName
+    || template.ctx.schoolName;
   return template.evaluate()
-    .setTitle('DAI — Escuela')
+    .setTitle('DAI — Panel Directora')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
