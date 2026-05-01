@@ -714,10 +714,12 @@ function submitOperativoFromPanel(accion, email) {
   });
 
   // Mapeo accion → estado nuevo + opciones.
+  // Sesión 5 chunk F: eliminado invalidateToken (col 10 deprecated en modelo C —
+  // identificación por mail).
   const ACCION_MAP = {
-    'marcarLicencia':  { estadoNuevo: 'Licencia',       invalidateToken: false, removeEditor: false },
-    'volvioLicencia':  { estadoNuevo: 'Activa',         invalidateToken: false, removeEditor: false },
-    'darDeBaja':       { estadoNuevo: 'No disponible',  invalidateToken: true,  removeEditor: true  }
+    'marcarLicencia':  { estadoNuevo: 'Licencia',       removeEditor: false },
+    'volvioLicencia':  { estadoNuevo: 'Activa',         removeEditor: false },
+    'darDeBaja':       { estadoNuevo: 'No disponible',  removeEditor: true  }
   };
   const cfg = ACCION_MAP[accion];
   if (!cfg) {
@@ -754,7 +756,8 @@ function submitOperativoFromPanel(accion, email) {
       return { ok: false, reason: 'docente-not-found' };
     }
 
-    const range = tab.getRange(3, 1, lastRow - 2, 10).getValues();
+    // Sesión 5 chunk F: lectura reducida a cols 1-6 (sin token col 10 ni notas col 9).
+    const range = tab.getRange(3, 1, lastRow - 2, 6).getValues();
     let rowIndex = -1;
     let rowData = null;
     for (let i = 0; i < range.length; i++) {
@@ -774,26 +777,12 @@ function submitOperativoFromPanel(accion, email) {
     const apellidoFila = String(rowData[0] || '').trim();
     const nombreFila = String(rowData[1] || '').trim();
     const emailFila = String(rowData[3] || '').trim();
-    const tokenViejo = String(rowData[9] || '').trim();
     const estadoAnterior = String(rowData[5] || '').trim();
 
     // Write Estado (col 6) + Fecha cambio (col 8) ATÓMICO.
     const today = new Date();
     tab.getRange(rowIndex, 6).setValue(cfg.estadoNuevo);
     tab.getRange(rowIndex, 8).setValue(today);
-
-    // Para darDeBaja: invalidate token (col 10) — best-effort.
-    let tokenInvalidated = false;
-    if (cfg.invalidateToken && tokenViejo) {
-      try {
-        const result = TokenService.invalidate(tokenViejo);
-        tokenInvalidated = !!(result && result.invalidated);
-      } catch (tokenErr) {
-        OperacionesLog.warn('panel-action: TokenService.invalidate fallo', {
-          err: String(tokenErr), requestId: requestId
-        });
-      }
-    }
 
     // Para darDeBaja: removeEditor del yearFolder — best-effort (SPOF 24).
     let editorRemoved = false;
@@ -848,7 +837,6 @@ function submitOperativoFromPanel(accion, email) {
       estadoAnterior: estadoAnterior,
       estadoNuevo: cfg.estadoNuevo,
       row: rowIndex,
-      tokenInvalidated: tokenInvalidated,
       editorRemoved: editorRemoved,
       refreshFailed: refreshFailed,
       warnings: warnings,

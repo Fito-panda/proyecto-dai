@@ -146,12 +146,14 @@ function handleSumarDocente(e) {
 
   // ==========================================================================
   // PEND-PROD-1 (sesión 4 2026-05-01) — lock acotado A: verificar duplicado +
-  // generar token + appendRow es read-modify-write atómico. Sin lock, dos
-  // form submits con mismo email pueden ambos pasar la verificación (no
-  // encuentran duplicado) y appendear ambos → fila duplicada.
+  // appendRow es read-modify-write atómico. Sin lock, dos form submits con
+  // mismo email pueden ambos pasar la verificación (no encuentran duplicado)
+  // y appendear ambos → fila duplicada.
+  //
+  // Sesión 5 chunk F: eliminado generate token — col 10 deprecated en modelo C
+  // (identificación por mail, no por token UUID en URL).
   // ==========================================================================
   const lock = _acquireLockWithRetry('handleSumarDocente', { email: email, apellidoNombre: apellidoNombre });
-  let token;
   try {
     // 2. Verificar duplicado por email (spec §2.2). Idempotencia critica:
     // re-submit del mismo form NO debe duplicar la fila.
@@ -169,19 +171,10 @@ function handleSumarDocente(e) {
       }
     }
 
-    // 3. Generar token PRIMERO (Loop 3 hallazgo 4-B + spec §2.3).
-    // Sin token, no escribimos fila parcial.
-    try {
-      token = TokenService.generate();
-    } catch (tokenErr) {
-      OperacionesLog.error('handleSumarDocente: TokenService.generate fallo', {
-        err: String(tokenErr), email: email
-      });
-      throw tokenErr;
-    }
-
-    // 4. Escribir fila completa atomica (spec §2.4). Schema 10 cols:
+    // 3. Escribir fila completa atomica (spec §2.4). Schema 10 cols:
     // [Apellido, Nombre, DNI, Email, Tipo, Estado, Fecha alta, Fecha cambio, Notas, Token]
+    // Col 10 (Token) queda vacía — modelo C deprecated, mantenida para no
+    // romper schema idempotency con Sheets en producción.
     const today = new Date();
     tab.appendRow([
       apellido,
@@ -193,7 +186,7 @@ function handleSumarDocente(e) {
       today,
       today,
       'Sumada via Panel Directora',
-      token
+      ''
     ]);
   } finally {
     lock.releaseLock();
@@ -242,26 +235,19 @@ function handleSumarDocente(e) {
   }
 
   // ==========================================================================
-  // 7. Log de exito + URL admin (spec §2.7-2.8 — decision Fito: log only).
-  // Nely copia urlAdmin del log y se la manda a la nueva docente por WhatsApp.
+  // 7. Log de exito (spec §2.7-2.8). Modelo C: la docente entra al panel
+  // directamente con SU mail (no requiere URL personalizada con token).
+  //
+  // Sesión 5 chunk F: eliminado bloque urlAdmin con token — modelo C usa
+  // UNA sola URL (la del web app deploy) común a toda la escuela. La
+  // distribución se hace via botón "Compartir link" del panel directora
+  // (chunk G) o via la pestaña del Sheet con la URL canónica.
   // ==========================================================================
-  let urlAdmin = '';
-  try {
-    const base = PropertiesService.getScriptProperties().getProperty('webapp-url:teacher') || '';
-    if (base) {
-      urlAdmin = base + '?role=admin&token=' + encodeURIComponent(token);
-    }
-  } catch (urlErr) {
-    // no-op — urlAdmin queda vacio
-  }
-
   OperacionesLog.info('Docente sumada', {
     apellido: apellido,
     nombre: nombre,
     email: email,
-    tipo: tipo,
-    tokenLast4: token.slice(-4),
-    urlAdmin: urlAdmin || '(URL no disponible — abrir webapp /exec una vez para que cachee webapp-url:teacher)'
+    tipo: tipo
   });
 }
 
@@ -339,10 +325,13 @@ function _findDocenteRowByDropdown(tab, dropdownValue) {
  * patron compartido pasos 11-13 plan v3.
  *
  * Defensive guard L1 + lookup docente por dropdown + update Estado/Fecha
- * cambio. Para handleDarDeBaja (paso 13), opts={invalidateToken:true,
- * removeEditor:true} agrega revocacion de acceso (Loop 3 hallazgo 4-C:
- * try/catch + log WARN si removeEditor falla, fila marcada No disponible
- * igual — accion manual flagged en log para Nely).
+ * cambio. Para handleDarDeBaja (paso 13), opts={removeEditor:true} agrega
+ * revocacion de acceso al yearFolder (Loop 3 hallazgo 4-C: try/catch + log
+ * WARN si removeEditor falla, fila marcada No disponible igual — accion
+ * manual flagged en log para Nely).
+ *
+ * Sesión 5 chunk F: eliminada opt invalidateToken (col 10 deprecated en
+ * modelo C — identificación por mail).
  *
  * Returns: void. Loguea exito o error a OperacionesLog.
  */
@@ -372,11 +361,13 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
   // PEND-PROD-1 (sesión 4 2026-05-01) — lock acotado A: read-modify-write
   // sobre 👥 Docentes debe ser atómico (lookup + update). Si separamos
   // lookup y update, dos handlers concurrentes pueden leer mismo estado y
-  // pisarse. Lock cubre lookup + update + token invalidate + removeEditor.
+  // pisarse. Lock cubre lookup + update + removeEditor.
+  //
+  // Sesión 5 chunk F: eliminada lectura/invalidate de token (col 10 deprecated
+  // en modelo C — identificación por mail).
   const lock = _acquireLockWithRetry(formName, { dropdownValue: dropdownValue });
-  let apellido = '', nombre = '', email = '', tokenAnterior = '', estadoAnterior = '';
+  let apellido = '', nombre = '', email = '', estadoAnterior = '';
   let rowIndex = -1;
-  let tokenInvalidated = false;
   let editorRemoved = false;
   let editorRemoveFailed = false;
   try {
@@ -389,12 +380,11 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
       return;
     }
 
-    // Capturar email + token + estado anterior antes del update (para log + ops)
-    const docenteRow = tab.getRange(rowIndex, 1, 1, 10).getValues()[0];
+    // Capturar email + estado anterior antes del update (para log + ops)
+    const docenteRow = tab.getRange(rowIndex, 1, 1, 6).getValues()[0];
     apellido = String(docenteRow[0] || '').trim();
     nombre = String(docenteRow[1] || '').trim();
     email = String(docenteRow[3] || '').trim();
-    tokenAnterior = String(docenteRow[9] || '').trim();
     estadoAnterior = String(docenteRow[5] || '').trim();
 
     // Update Estado (col 6) + Fecha cambio (col 8)
@@ -402,18 +392,7 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
     tab.getRange(rowIndex, 6).setValue(nuevoEstado);
     tab.getRange(rowIndex, 8).setValue(today);
 
-    // Para baja (paso 13): invalidate token + removeEditor (best-effort)
-    if (opts && opts.invalidateToken && tokenAnterior) {
-      try {
-        const result = TokenService.invalidate(tokenAnterior);
-        tokenInvalidated = result && result.invalidated;
-      } catch (tokenErr) {
-        OperacionesLog.warn(formName + ': TokenService.invalidate fallo', {
-          err: String(tokenErr), row: rowIndex
-        });
-      }
-    }
-
+    // Para baja (paso 13): removeEditor (best-effort).
     if (opts && opts.removeEditor && email) {
       try {
         const yearFolderEntry = PropertiesRegistry.get('folder:2026');
@@ -460,7 +439,6 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
     estadoAnterior: estadoAnterior,
     estadoNuevo: nuevoEstado,
     row: rowIndex,
-    tokenInvalidated: tokenInvalidated,
     editorRemoved: editorRemoved,
     editorRemoveFailed: editorRemoveFailed,
     refreshDurationMs: refreshReport && refreshReport.durationMs,
@@ -516,7 +494,6 @@ function handleDarDeBaja(e) {
     return;
   }
   return _changeDocenteEstado(e, 'handleDarDeBaja', 'A quien das de baja?', 'No disponible', {
-    invalidateToken: true,
     removeEditor: true
   });
 }

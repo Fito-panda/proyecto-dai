@@ -232,8 +232,8 @@ const SetupOrchestrator = {
    *   - teacher_emails (PARAGRAPH multi-linea) → 1 fila por cada email valido.
    *
    * Cada fila se agrega solo si NO existe ya una fila con ese email en la
-   * pestaña (idempotencia via _upsertDocenteByEmail). Token UUID generado
-   * con TokenService.generate() para cada nueva fila. Estado inicial = 'Activa'.
+   * pestaña (idempotencia via _upsertDocenteByEmail). Estado inicial = 'Activa'.
+   * Col 10 (Token) queda vacía — modelo C identifica por mail (chunk F sesión 5).
    *
    * Defensive: si _respuestas_config no esta poblada (caso pre-onboarding
    * o smoke test sin onboarding), retorna sin sembrar.
@@ -286,7 +286,7 @@ const SetupOrchestrator = {
         today,
         today,
         'Directora (sembrada del onboarding)',
-        TokenService.generate()
+        '' // Col 10 (Token) deprecated chunk F sesión 5 — modelo C identifica por mail
       ]);
       if (wasSeeded) result.seeded++;
       else result.skipped++;
@@ -315,7 +315,7 @@ const SetupOrchestrator = {
           today,
           today,
           'Sembrada del onboarding (apellido/nombre vacios — completar a mano o via "Sumar docente")',
-          TokenService.generate()
+          '' // Col 10 (Token) deprecated chunk F sesión 5 — modelo C identifica por mail
         ]);
         if (wasSeeded) result.seeded++;
         else result.skipped++;

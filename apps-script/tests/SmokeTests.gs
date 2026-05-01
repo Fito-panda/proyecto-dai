@@ -708,12 +708,14 @@ function runCicloVidaTest() {
  *
  * Pasos defensivos (todos best-effort, ningun throw):
  *   1. Buscar fila por email en 👥 Docentes.
- *   2. Capturar token + email reales antes de borrar (para invalidate/removeEditor).
+ *   2. Capturar email real antes de borrar (para removeEditor).
  *   3. Borrar la fila (deleteRow) — operacion mas critica.
- *   4. Invalidate token via TokenService (si tenia token).
- *   5. RemoveEditor del yearFolder (si tenia email — fallara con email fake, OK).
+ *   4. RemoveEditor del yearFolder (si tenia email — fallara con email fake, OK).
  *
  * Idempotente: si la docente test no existe (primera corrida), retorna sin tocar.
+ *
+ * Sesion 5 chunk F: eliminado paso de TokenService.invalidate — col 10 deprecated
+ * (modelo C identifica por mail, no por token).
  */
 function _cleanupCicloTest(email) {
   const targetEmail = String(email || '').trim().toLowerCase();
@@ -733,13 +735,12 @@ function _cleanupCicloTest(email) {
   const lastRow = tab.getLastRow();
   if (lastRow < 3) return;
 
-  const range = tab.getRange(3, 1, lastRow - 2, 10).getValues();
+  const range = tab.getRange(3, 1, lastRow - 2, 6).getValues();
   for (let i = 0; i < range.length; i++) {
     const rowEmail = String(range[i][3] || '').trim().toLowerCase();
     if (rowEmail !== targetEmail) continue;
 
     const rowIndex = 3 + i;
-    const tokenAnterior = String(range[i][9] || '').trim();
     const emailReal = String(range[i][3] || '').trim();
 
     try {
@@ -747,14 +748,6 @@ function _cleanupCicloTest(email) {
       console.log('_cleanupCicloTest: fila ' + rowIndex + ' borrada (email ' + emailReal + ')');
     } catch (err) {
       console.log('_cleanupCicloTest: deleteRow fila ' + rowIndex + ' fallo: ' + err);
-    }
-
-    if (tokenAnterior) {
-      try {
-        TokenService.invalidate(tokenAnterior);
-      } catch (err) {
-        console.log('_cleanupCicloTest: TokenService.invalidate fallo: ' + err);
-      }
     }
 
     try {
