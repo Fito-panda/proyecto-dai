@@ -35,6 +35,37 @@
  */
 
 // ============================================================================
+// Helper compartido — adquirir DocumentLock con retry y doble traza si falla.
+// Sesión 4 2026-05-01 PEND-PROD-1 cierre. Patrón D híbrido del reporte agente
+// background: tryLock(5000) + 1 retry + log Logger + log OperacionesLog ALTA
+// + throw. Evita data loss silencioso cuando 2 form submits concurrentes
+// pisan la misma fila. Coordina con WebApp orquestadores que ya usan
+// LockService.getDocumentLock() (mismo namespace = serialización efectiva).
+// ============================================================================
+function _acquireLockWithRetry(operation, payload) {
+  const lock = LockService.getDocumentLock();
+  let acquired = lock.tryLock(5000);
+  if (!acquired) {
+    acquired = lock.tryLock(5000); // 1 retry según patrón verificado.
+  }
+  if (!acquired) {
+    const errMsg = '[ERROR][LOCK_TIMEOUT] ' + operation + ': no se pudo obtener DocumentLock tras 2 intentos de 5s';
+    Logger.log(errMsg + ' payload=' + JSON.stringify(payload || {}));
+    try {
+      OperacionesLog.error(operation + '.lock-timeout', {
+        severity: 'ALTA',
+        message: 'Lock timeout 5s + retry 5s. Posible concurrencia o operación previa colgada. ACCIÓN MANUAL: revisar el panel Activadores y reprocesar la fila si fue submit de form.',
+        payload: payload || {}
+      });
+    } catch (logErr) {
+      Logger.log('[ERROR] _acquireLockWithRetry: OperacionesLog.error fallo: ' + (logErr && logErr.message));
+    }
+    throw new Error('Lock timeout en ' + operation);
+  }
+  return lock;
+}
+
+// ============================================================================
 // Handlers stub — declarados arriba (function declarations hoisted) para que
 // DISPATCH_TABLE pueda referenciarlos sin errores de orden.
 // ============================================================================
@@ -81,12 +112,8 @@ function handleSumarDocente(e) {
     throw new Error('handleSumarDocente: pestaña 👥 Docentes no existe');
   }
 
-  // TODO PEND-PROD-1 (escala 956 escuelas): wrap toda la logica en
-  // LockService.getScriptLock().tryLock(timeout) + try/finally para release.
-  // Hoy omitido (demo 1 directora, sin concurrencia real).
-
   // ==========================================================================
-  // 1. Extraer y validar inputs (spec §2.1).
+  // 1. Extraer y validar inputs (spec §2.1) — pre-lock (operaciones puras).
   // Usa _firstNonEmpty global (helper compartido — defensive para items
   // duplicados D-F3c-NUEVO-12, mitigacion del bug pre-fix raiz).
   // ==========================================================================
@@ -118,54 +145,59 @@ function handleSumarDocente(e) {
   const nombre = parts.slice(1).join(' ');
 
   // ==========================================================================
-  // 2. Verificar duplicado por email (spec §2.2). Idempotencia critica:
-  // re-submit del mismo form NO debe duplicar la fila.
+  // PEND-PROD-1 (sesión 4 2026-05-01) — lock acotado A: verificar duplicado +
+  // generar token + appendRow es read-modify-write atómico. Sin lock, dos
+  // form submits con mismo email pueden ambos pasar la verificación (no
+  // encuentran duplicado) y appendear ambos → fila duplicada.
   // ==========================================================================
-  const targetEmailLower = email.toLowerCase();
-  const lastRow = tab.getLastRow();
-  if (lastRow >= 3) {
-    const existingEmails = tab.getRange(3, 4, lastRow - 2, 1).getValues();
-    for (let i = 0; i < existingEmails.length; i++) {
-      if (String(existingEmails[i][0] || '').trim().toLowerCase() === targetEmailLower) {
-        OperacionesLog.warn('handleSumarDocente: email ya existe en 👥 Docentes — skip', {
-          email: email, rowExistente: 3 + i, apellidoNombre: apellidoNombre
-        });
-        return;
-      }
-    }
-  }
-
-  // ==========================================================================
-  // 3. Generar token PRIMERO (Loop 3 hallazgo 4-B + spec §2.3).
-  // Sin token, no escribimos fila parcial.
-  // ==========================================================================
+  const lock = _acquireLockWithRetry('handleSumarDocente', { email: email, apellidoNombre: apellidoNombre });
   let token;
   try {
-    token = TokenService.generate();
-  } catch (tokenErr) {
-    OperacionesLog.error('handleSumarDocente: TokenService.generate fallo', {
-      err: String(tokenErr), email: email
-    });
-    throw tokenErr;
-  }
+    // 2. Verificar duplicado por email (spec §2.2). Idempotencia critica:
+    // re-submit del mismo form NO debe duplicar la fila.
+    const targetEmailLower = email.toLowerCase();
+    const lastRow = tab.getLastRow();
+    if (lastRow >= 3) {
+      const existingEmails = tab.getRange(3, 4, lastRow - 2, 1).getValues();
+      for (let i = 0; i < existingEmails.length; i++) {
+        if (String(existingEmails[i][0] || '').trim().toLowerCase() === targetEmailLower) {
+          OperacionesLog.warn('handleSumarDocente: email ya existe en 👥 Docentes — skip', {
+            email: email, rowExistente: 3 + i, apellidoNombre: apellidoNombre
+          });
+          return;
+        }
+      }
+    }
 
-  // ==========================================================================
-  // 4. Escribir fila completa atomica (spec §2.4). Schema 10 cols:
-  // [Apellido, Nombre, DNI, Email, Tipo, Estado, Fecha alta, Fecha cambio, Notas, Token]
-  // ==========================================================================
-  const today = new Date();
-  tab.appendRow([
-    apellido,
-    nombre,
-    dni,
-    email,
-    tipo,
-    'Activa',
-    today,
-    today,
-    'Sumada via Panel Directora',
-    token
-  ]);
+    // 3. Generar token PRIMERO (Loop 3 hallazgo 4-B + spec §2.3).
+    // Sin token, no escribimos fila parcial.
+    try {
+      token = TokenService.generate();
+    } catch (tokenErr) {
+      OperacionesLog.error('handleSumarDocente: TokenService.generate fallo', {
+        err: String(tokenErr), email: email
+      });
+      throw tokenErr;
+    }
+
+    // 4. Escribir fila completa atomica (spec §2.4). Schema 10 cols:
+    // [Apellido, Nombre, DNI, Email, Tipo, Estado, Fecha alta, Fecha cambio, Notas, Token]
+    const today = new Date();
+    tab.appendRow([
+      apellido,
+      nombre,
+      dni,
+      email,
+      tipo,
+      'Activa',
+      today,
+      today,
+      'Sumada via Panel Directora',
+      token
+    ]);
+  } finally {
+    lock.releaseLock();
+  }
 
   // ==========================================================================
   // 5. Compartir Drive yearFolder (best-effort, cazada anticipada B + spec §2.5).
@@ -337,62 +369,72 @@ function _changeDocenteEstado(e, formName, dropdownTitle, nuevoEstado, opts) {
     return;
   }
 
-  // Lookup fila
-  const rowIndex = _findDocenteRowByDropdown(tab, dropdownValue);
-  if (rowIndex === -1) {
-    OperacionesLog.error(formName + ': docente no encontrada en 👥 Docentes', {
-      dropdownValue: dropdownValue
-    });
-    return;
-  }
-
-  // Capturar email + token + estado anterior antes del update (para log + ops)
-  const docenteRow = tab.getRange(rowIndex, 1, 1, 10).getValues()[0];
-  const apellido = String(docenteRow[0] || '').trim();
-  const nombre = String(docenteRow[1] || '').trim();
-  const email = String(docenteRow[3] || '').trim();
-  const tokenAnterior = String(docenteRow[9] || '').trim();
-  const estadoAnterior = String(docenteRow[5] || '').trim();
-
-  // Update Estado (col 6) + Fecha cambio (col 8)
-  const today = new Date();
-  tab.getRange(rowIndex, 6).setValue(nuevoEstado);
-  tab.getRange(rowIndex, 8).setValue(today);
-
-  // Para baja (paso 13): invalidate token + removeEditor (best-effort)
+  // PEND-PROD-1 (sesión 4 2026-05-01) — lock acotado A: read-modify-write
+  // sobre 👥 Docentes debe ser atómico (lookup + update). Si separamos
+  // lookup y update, dos handlers concurrentes pueden leer mismo estado y
+  // pisarse. Lock cubre lookup + update + token invalidate + removeEditor.
+  const lock = _acquireLockWithRetry(formName, { dropdownValue: dropdownValue });
+  let apellido = '', nombre = '', email = '', tokenAnterior = '', estadoAnterior = '';
+  let rowIndex = -1;
   let tokenInvalidated = false;
   let editorRemoved = false;
   let editorRemoveFailed = false;
-
-  if (opts && opts.invalidateToken && tokenAnterior) {
-    try {
-      const result = TokenService.invalidate(tokenAnterior);
-      tokenInvalidated = result && result.invalidated;
-    } catch (tokenErr) {
-      OperacionesLog.warn(formName + ': TokenService.invalidate fallo', {
-        err: String(tokenErr), row: rowIndex
+  try {
+    // Lookup fila
+    rowIndex = _findDocenteRowByDropdown(tab, dropdownValue);
+    if (rowIndex === -1) {
+      OperacionesLog.error(formName + ': docente no encontrada en 👥 Docentes', {
+        dropdownValue: dropdownValue
       });
+      return;
     }
-  }
 
-  if (opts && opts.removeEditor && email) {
-    try {
-      const yearFolderEntry = PropertiesRegistry.get('folder:2026');
-      if (yearFolderEntry && yearFolderEntry.id) {
-        const yearFolder = DriveApp.getFolderById(yearFolderEntry.id);
-        yearFolder.removeEditor(email);
-        editorRemoved = true;
-      } else {
-        OperacionesLog.warn(formName + ': folder:2026 no en registry — removeEditor skipped (revocar manual desde Drive)', {
-          email: email
+    // Capturar email + token + estado anterior antes del update (para log + ops)
+    const docenteRow = tab.getRange(rowIndex, 1, 1, 10).getValues()[0];
+    apellido = String(docenteRow[0] || '').trim();
+    nombre = String(docenteRow[1] || '').trim();
+    email = String(docenteRow[3] || '').trim();
+    tokenAnterior = String(docenteRow[9] || '').trim();
+    estadoAnterior = String(docenteRow[5] || '').trim();
+
+    // Update Estado (col 6) + Fecha cambio (col 8)
+    const today = new Date();
+    tab.getRange(rowIndex, 6).setValue(nuevoEstado);
+    tab.getRange(rowIndex, 8).setValue(today);
+
+    // Para baja (paso 13): invalidate token + removeEditor (best-effort)
+    if (opts && opts.invalidateToken && tokenAnterior) {
+      try {
+        const result = TokenService.invalidate(tokenAnterior);
+        tokenInvalidated = result && result.invalidated;
+      } catch (tokenErr) {
+        OperacionesLog.warn(formName + ': TokenService.invalidate fallo', {
+          err: String(tokenErr), row: rowIndex
         });
       }
-    } catch (removeErr) {
-      editorRemoveFailed = true;
-      OperacionesLog.warn(formName + ': removeEditor fallo — fila marcada No disponible IGUAL, ACCION MANUAL: revocar acceso del email desde Drive', {
-        email: email, err: String(removeErr)
-      });
     }
+
+    if (opts && opts.removeEditor && email) {
+      try {
+        const yearFolderEntry = PropertiesRegistry.get('folder:2026');
+        if (yearFolderEntry && yearFolderEntry.id) {
+          const yearFolder = DriveApp.getFolderById(yearFolderEntry.id);
+          yearFolder.removeEditor(email);
+          editorRemoved = true;
+        } else {
+          OperacionesLog.warn(formName + ': folder:2026 no en registry — removeEditor skipped (revocar manual desde Drive)', {
+            email: email
+          });
+        }
+      } catch (removeErr) {
+        editorRemoveFailed = true;
+        OperacionesLog.warn(formName + ': removeEditor fallo — fila marcada No disponible IGUAL, ACCION MANUAL: revocar acceso del email desde Drive', {
+          email: email, err: String(removeErr)
+        });
+      }
+    }
+  } finally {
+    lock.releaseLock();
   }
 
   // Refresh dropdowns que listan 👥 Docentes (paso 14 plan v3 — cierra
@@ -569,47 +611,56 @@ function handleAuthCheck(e, formId) {
     return;
   }
 
-  // Lookup docente Activa por email (case-insensitive).
-  const docente = _findDocenteByEmail(tab, email);
+  // PEND-PROD-1 (sesión 4 2026-05-01) — lock acotado A: lookup contra
+  // 👥 Docentes Activa + posible deleteRow del Sheet de respuestas son
+  // read-modify-write. Si una docente recién sumada por handleSumarDocente
+  // (mismo lock) está en proceso, ambos handlers se serializan y NO race.
+  const lock = _acquireLockWithRetry('handleAuthCheck', { formId: formId, email: email });
+  try {
+    // Lookup docente Activa por email (case-insensitive).
+    const docente = _findDocenteByEmail(tab, email);
 
-  if (docente) {
-    OperacionesLog.info('handleAuthCheck OK — submission autorizada', {
-      formId: formId,
-      email: docente.email,
-      apellido: docente.apellido,
-      nombre: docente.nombre,
-      row: docente.row
-    });
-    return;
-  }
-
-  // No autorizada — borrar fila del Sheet de respuestas (decision plan v3 §11).
-  // Defensive: si deleteRow falla por permisos o cualquier motivo, log WARN
-  // pero NO throw (la fila quedaria como deuda visual, OperacionesLog tiene
-  // el ERROR para auditoria).
-  const responseSheet = (e && e.range) ? e.range.getSheet() : null;
-  const rowIndex = (e && e.range) ? e.range.getRow() : null;
-
-  let deletedRow = false;
-  if (responseSheet && rowIndex) {
-    try {
-      responseSheet.deleteRow(rowIndex);
-      deletedRow = true;
-    } catch (deleteErr) {
-      OperacionesLog.warn('handleAuthCheck: deleteRow fallo — fila NO autorizada queda en Sheet (deuda visual)', {
-        formId: formId, email: email, rowIndex: rowIndex, err: String(deleteErr)
+    if (docente) {
+      OperacionesLog.info('handleAuthCheck OK — submission autorizada', {
+        formId: formId,
+        email: docente.email,
+        apellido: docente.apellido,
+        nombre: docente.nombre,
+        row: docente.row
       });
+      return;
     }
-  }
 
-  OperacionesLog.error('handleAuthCheck: submission NO autorizada — fila ' + (deletedRow ? 'borrada' : 'NO borrada'), {
-    formId: formId,
-    emailTipeado: email,
-    rowIndex: rowIndex,
-    sheetName: responseSheet ? responseSheet.getName() : null,
-    deletedRow: deletedRow,
-    razon: 'email no encontrado en 👥 Docentes con Estado=Activa'
-  });
+    // No autorizada — borrar fila del Sheet de respuestas (decision plan v3 §11).
+    // Defensive: si deleteRow falla por permisos o cualquier motivo, log WARN
+    // pero NO throw (la fila quedaria como deuda visual, OperacionesLog tiene
+    // el ERROR para auditoria).
+    const responseSheet = (e && e.range) ? e.range.getSheet() : null;
+    const rowIndex = (e && e.range) ? e.range.getRow() : null;
+
+    let deletedRow = false;
+    if (responseSheet && rowIndex) {
+      try {
+        responseSheet.deleteRow(rowIndex);
+        deletedRow = true;
+      } catch (deleteErr) {
+        OperacionesLog.warn('handleAuthCheck: deleteRow fallo — fila NO autorizada queda en Sheet (deuda visual)', {
+          formId: formId, email: email, rowIndex: rowIndex, err: String(deleteErr)
+        });
+      }
+    }
+
+    OperacionesLog.error('handleAuthCheck: submission NO autorizada — fila ' + (deletedRow ? 'borrada' : 'NO borrada'), {
+      formId: formId,
+      emailTipeado: email,
+      rowIndex: rowIndex,
+      sheetName: responseSheet ? responseSheet.getName() : null,
+      deletedRow: deletedRow,
+      razon: 'email no encontrado en 👥 Docentes con Estado=Activa'
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ============================================================================
