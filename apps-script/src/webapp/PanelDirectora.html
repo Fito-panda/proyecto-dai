@@ -551,6 +551,61 @@
     .toast.toast-success { background: #2e8b57; }
     .toast.toast-warn    { background: #d97706; }
     .toast.toast-error   { background: #c85a5a; }
+
+    /* Sesión 5 chunk G — sección "Recordatorios sugeridos" */
+    .recordatorios-list {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0;
+    }
+    .recordatorios-list li {
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: #f8f8f8;
+      border-left: 3px solid #2b4a6f;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .recordatorios-hint {
+      font-size: 12px;
+      color: #666;
+      margin: 8px 0 0;
+      line-height: 1.5;
+    }
+
+    /* Sesión 5 chunk G — vista imprimible del QR para sala docentes.
+       Activado por body.printing-qr al tocar botón "🖨 Imprimir QR".
+       Oculta TODO el panel excepto el QR grande + texto instructivo. */
+    .qr-print-only {
+      display: none;
+    }
+    @media print {
+      body.printing-qr * { visibility: hidden; }
+      body.printing-qr .qr-print-only,
+      body.printing-qr .qr-print-only * { visibility: visible; }
+      body.printing-qr .qr-print-only {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        padding: 40px 20px;
+      }
+      body.printing-qr .qr-print-only img {
+        width: 400px;
+        height: 400px;
+        margin: 20px auto;
+      }
+      body.printing-qr .qr-print-only h1 {
+        font-size: 32px;
+        margin: 0 0 8px;
+      }
+      body.printing-qr .qr-print-only p {
+        font-size: 18px;
+        margin: 8px 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -708,6 +763,29 @@
     <button class="btn success" onclick="copyLink()">📋 Copiar link para WhatsApp</button>
     <a class="btn secondary" href="<?= ctx.panelDocentesUrl ?>" target="_blank">Abrir panel de prueba</a>
     <span class="url" style="display:block;font-family:monospace;font-size:11px;color:#888;word-break:break-all;margin-top:8px;"><?= ctx.panelDocentesUrl || '(URL disponible tras publicar el Panel)' ?></span>
+
+    <!-- Sesión 5 chunk G — 2 botones nuevos modelo C -->
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e0e0e0;">
+      <button class="btn primary" onclick="compartirLinkAdmin()" style="margin-bottom:6px;">📱 Compartir link admin con docente nueva</button>
+      <p class="hint" style="margin:0 0 12px;">Pre-arma un mensaje para WhatsApp con el link del panel admin para sumar una docente al equipo administrador (después de cargar su mail).</p>
+      <button class="btn secondary" onclick="imprimirQR()" style="margin-bottom:6px;">🖨 Imprimir QR para sala docentes</button>
+      <p class="hint" style="margin:0;">Genera vista imprimible con el QR grande del panel docentes para pegar en sala.</p>
+    </div>
+  </section>
+
+  <!-- Sesión 5 chunk G — sección "Recordatorios sugeridos".
+       NO usa Calendar API. Solo provee texto copy-pasteable para que la
+       directora arme los eventos UNA vez en su Google Calendar personal. -->
+  <section>
+    <h2>📅 Recordatorios sugeridos</h2>
+    <p class="hint">Cargá estos en tu Google Calendar UNA vez. El sistema NO manda recordatorios — pero podés copiarlos y pegarlos en tu calendario personal para que te avise.</p>
+    <ul class="recordatorios-list">
+      <li>📆 Día 25 de cada mes — pre-carga SGE (Ministerio Córdoba)</li>
+      <li>📆 Diciembre — armá legajos con anticipación al cierre de año</li>
+      <li>📆 Viernes 17h — armá planificación de la próxima semana</li>
+    </ul>
+    <button class="btn secondary" onclick="copiarRecordatorios()">📋 Copiar todos</button>
+    <p class="recordatorios-hint">¿Querés más recordatorios? Andá a tu Google Calendar y armálos vos misma según tu ritmo.</p>
   </section>
 
   <section>
@@ -719,6 +797,18 @@
       ❓ Centro de ayuda
     </a>
   </section>
+
+  <!-- Sesión 5 chunk G — placeholder oculto para vista imprimible del QR.
+       Solo visible cuando body tiene clase .printing-qr (activada por
+       imprimirQR() + window.print()). CSS @media print hace el rest. -->
+  <div class="qr-print-only">
+    <h1><?= ctx.schoolName || 'Escuela' ?></h1>
+    <p>Panel docentes — escaneá con tu celular</p>
+    <? if (ctx.panelDocentesQrUrl) { ?>
+      <img src="<?= ctx.panelDocentesQrUrl ?>" alt="QR Panel Docentes">
+    <? } ?>
+    <p><?= ctx.panelDocentesUrl || '' ?></p>
+  </div>
 
   <footer>
     Sistema DAI · <a href="https://proyectodai.com" target="_blank">proyectodai.com</a>
@@ -775,6 +865,93 @@
     // Fase 3a/3b: stub. El wiring con regenerateAll() viene en una iteración futura.
     if (confirm('¿Regenerar todo el sistema?\n\nEsto rehace la estructura de Drive, Forms y Sheets sin borrar respuestas.\n\nPuede tardar 5-6 minutos.')) {
       showToast('Esta acción se conecta en una próxima iteración.');
+    }
+  }
+
+  // ==========================================================================
+  // Sesión 5 chunk G — funciones modelo C: 3 botones nuevos del panel.
+  // ==========================================================================
+
+  /**
+   * compartirLinkAdmin — botón "📱 Compartir link admin con docente nueva".
+   * Pre-arma mensaje WhatsApp con el link admin (?role=admin) para sumar
+   * a una docente recién cargada al panel admin (sumarla con el botón
+   * "+ Sumar nueva docente" PRIMERO — este botón solo distribuye el link).
+   *
+   * UX: navigator.share() si está disponible (mobile-first). Fallback a
+   * clipboard. Último fallback a window.prompt para casos edge.
+   */
+  function compartirLinkAdmin() {
+    var teacherUrl = <?= JSON.stringify(ctx.panelDocentesUrl || '') ?>;
+    if (!teacherUrl) {
+      showToast('Todavía no publicaste tu Panel. Ver /ayuda Paso 0.');
+      return;
+    }
+    var adminUrl = teacherUrl + '?role=admin';
+    var mensaje = 'Te sumamos al panel administrador de la escuela. Entrá con tu mail registrado:\n\n' + adminUrl + '\n\nTip: guardá el link en favoritos del celular.';
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'Panel administrador DAI',
+        text: mensaje
+      }).then(
+        function() { showToast('✓ Compartido'); },
+        function() { /* user cancel — no-op */ }
+      );
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(mensaje).then(
+        function() { showToast('✓ Mensaje copiado. Pegalo en WhatsApp.'); },
+        function() { window.prompt('Copiá este mensaje:', mensaje); }
+      );
+    } else {
+      window.prompt('Copiá este mensaje:', mensaje);
+    }
+  }
+
+  /**
+   * imprimirQR — botón "🖨 Imprimir QR para sala docentes".
+   * Activa media print que oculta todo el panel excepto el QR grande +
+   * texto instructivo. La directora imprime y pega en sala de docentes.
+   */
+  function imprimirQR() {
+    var qrUrl = <?= JSON.stringify(ctx.panelDocentesQrUrl || '') ?>;
+    if (!qrUrl) {
+      showToast('El QR se genera al publicar el Panel. Ver /ayuda Paso 0.');
+      return;
+    }
+    document.body.classList.add('printing-qr');
+    // setTimeout para que el browser aplique la clase antes del print dialog.
+    setTimeout(function() {
+      window.print();
+      // Cleanup: remover la clase post-print (cualquier resultado del dialog).
+      setTimeout(function() {
+        document.body.classList.remove('printing-qr');
+      }, 500);
+    }, 50);
+  }
+
+  /**
+   * copiarRecordatorios — botón "📋 Copiar todos" de la sección
+   * "📅 Recordatorios sugeridos". Copia 3 items al clipboard para que la
+   * directora los pegue UNO POR UNO en su Google Calendar personal.
+   * NO usa Calendar API (decisión sesión 5: cero scope creep).
+   */
+  function copiarRecordatorios() {
+    var items = [
+      'Día 25 de cada mes — pre-carga SGE (Ministerio Córdoba)',
+      'Diciembre — armá legajos con anticipación al cierre de año',
+      'Viernes 17h — armá planificación de la próxima semana'
+    ];
+    var texto = items.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(
+        function() { showToast('✓ Copiados. Pegá uno por evento en tu Google Calendar.'); },
+        function() { window.prompt('Copiá estos recordatorios:', texto); }
+      );
+    } else {
+      window.prompt('Copiá estos recordatorios:', texto);
     }
   }
 </script>
