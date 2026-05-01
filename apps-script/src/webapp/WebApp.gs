@@ -318,6 +318,14 @@ const WebApp = (function() {
       }
     } else {
       ctx.formsByPhase = _getFormsByPhase();
+      // Sesión 4 (2026-05-01): URLs por phase para botones "Abrir carpeta"
+      // del PanelDocentes (PD-5). Try/catch defensivo (PDD-1).
+      try {
+        ctx.phaseFolderUrls = _getPhaseFolderUrls(year);
+      } catch (err) {
+        Logger.log('[WebApp] phaseFolderUrls fallback {}: ' + (err && err.message));
+        ctx.phaseFolderUrls = {};
+      }
     }
     return ctx;
   }
@@ -369,6 +377,23 @@ const WebApp = (function() {
   // global "Ir a las carpetas →" del header de "Mis respuestas".
   function _getYearFolderUrl(year) {
     return _safeGetFolderUrl('folder:' + year);
+  }
+
+  // Sesión 4 (2026-05-01): URLs de las 4 carpetas raíz por phase para el
+  // PanelDocentes (PD-5). Cada phase tiene una carpeta padre fija en
+  // FOLDERS_CFG. Forms sin docs muestran el botón en su grupo igual.
+  function _getPhaseFolderUrls(year) {
+    const phaseFolderPaths = {
+      pedagogica: '01-Gestion-Pedagogica',
+      institucional: '02-Gestion-Institucional',
+      comunicacion: '03-Comunicacion',
+      admin: '05-Administracion'
+    };
+    const result = {};
+    Object.keys(phaseFolderPaths).forEach(function(phase) {
+      result[phase] = _safeGetFolderUrl('folder:' + year + '/' + phaseFolderPaths[phase]);
+    });
+    return result;
   }
 
   // Paso 21: refeature de "Mis respuestas por formulario" del PanelDirectora.

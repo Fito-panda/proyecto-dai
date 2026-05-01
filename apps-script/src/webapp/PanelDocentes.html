@@ -42,6 +42,21 @@
       margin-bottom: 10px;
     }
     .phase-header .icon { font-size: 20px; margin-right: 10px; }
+    .phase-folder-btn {
+      margin-left: auto;
+      font-size: 12px;
+      color: #2b4a6f;
+      text-decoration: none;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .phase-folder-btn:hover { text-decoration: underline; }
+    @media (max-width: 480px) {
+      .phase-header { flex-wrap: wrap; gap: 4px; }
+      .phase-folder-btn { margin-left: 0; width: 100%; padding-top: 4px; }
+    }
     .form-btn {
       display: flex;
       align-items: flex-start;
@@ -121,7 +136,7 @@
 <div class="container">
 
   <header>
-    <h1>Hola, maestras</h1>
+    <h1>Hola, docentes</h1>
     <h2><?= ctx.schoolName ?></h2>
     <div class="cta">Tocá el formulario que necesites completar:</div>
   </header>
@@ -133,6 +148,10 @@
         <div class="phase-header">
           <span class="icon"><?= ctx.phaseLabels[phase].icon ?></span>
           <?= ctx.phaseLabels[phase].label ?>
+          <? var phaseUrl = ctx.phaseFolderUrls && ctx.phaseFolderUrls[phase]; ?>
+          <? if (phaseUrl && phaseUrl !== '#') { ?>
+            <a class="phase-folder-btn" href="<?= phaseUrl ?>" target="_blank" rel="noopener noreferrer">📁 Abrir carpeta →</a>
+          <? } ?>
         </div>
         <? forms.forEach(function(f) { ?>
           <? if (f.url && f.url !== '#') { ?>
