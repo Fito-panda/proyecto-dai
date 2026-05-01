@@ -274,22 +274,12 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
-  // Admin: Modelo C primero (Session.getActiveUser + match 👥 Docentes Activa).
-  // Si falla Y hay ?token= en la URL → fallback al modelo viejo (TokenService).
-  // FALLBACK TEMPORAL durante chunks B+C — eliminado en chunk D después de
-  // test empírico cross-account confirmado.
-  let auth = _resolveAuthByEmail();
-  let authPath = 'email';
-  if (!auth.authorized && params.token) {
-    const token = String(params.token).trim();
-    const tokenAuth = (typeof TokenService !== 'undefined' && TokenService.validate)
-      ? TokenService.validate(token)
-      : { authorized: false, docente: null, reason: 'tokenservice-unavailable' };
-    if (tokenAuth.authorized) {
-      auth = tokenAuth;
-      authPath = 'token-fallback';
-    }
-  }
+  // Admin: Modelo C — identificar por Session.getActiveUser().getEmail() +
+  // match contra 👥 Docentes Activa o Licencia. Cazada I plan v3 "solo
+  // registradas operan". Validado empírico cross-account chunk C
+  // (sesión 5 2026-05-01): cuenta Gmail común externa entra al panel sin
+  // permisos manuales al Sheet (script container-bound resuelve acceso).
+  const auth = _resolveAuthByEmail();
 
   if (!auth.authorized) {
     const tmpl = HtmlService.createTemplateFromFile('src/webapp/PanelInvalido');
@@ -305,7 +295,6 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('src/webapp/PanelDirectora');
   template.ctx = WebApp._getContext(true);
   template.ctx.tokenAuth = auth;
-  template.ctx.authPath = authPath; // 'email' | 'token-fallback' — log/debug
   template.ctx.greetingName = auth.docente.nombre
     || auth.docente.apellido
     || template.ctx.directorName
