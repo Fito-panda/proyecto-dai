@@ -642,6 +642,11 @@
       <button type="button" class="btn secondary eq-sumar-btn" id="btnSumar">+ Sumar nueva docente</button>
     </div>
 
+    <!-- Sesión 5 chunk G UX refactor — botón post-Sumar: distribuir link admin
+         a la docente recién agregada. Flow natural: sumás → compartís link. -->
+    <button class="btn primary" onclick="compartirLinkAdmin()" style="margin:8px 0 4px;width:100%;">📱 Compartir link admin con docente nueva</button>
+    <p class="hint" style="margin:0 0 16px;">Pre-arma mensaje WhatsApp con el link del panel admin para mandar a la docente que recién sumaste.</p>
+
     <details class="eq-group">
       <summary class="eq-group-summary">
         Activas (<?= ctx.equipo.activas.length ?>)
@@ -748,7 +753,7 @@
   </section>
 
   <section>
-    <h2>📱 Link para compartir con las maestras</h2>
+    <h2>📱 Panel para todas las docentes</h2>
     <? if (ctx.panelDocentesQrUrl) { ?>
       <div class="qr-box">
         <img class="qr-img" src="<?= ctx.panelDocentesQrUrl ?>" width="200" height="200" alt="QR Panel Docentes">
@@ -764,13 +769,11 @@
     <a class="btn secondary" href="<?= ctx.panelDocentesUrl ?>" target="_blank">Abrir panel de prueba</a>
     <span class="url" style="display:block;font-family:monospace;font-size:11px;color:#888;word-break:break-all;margin-top:8px;"><?= ctx.panelDocentesUrl || '(URL disponible tras publicar el Panel)' ?></span>
 
-    <!-- Sesión 5 chunk G — 2 botones nuevos modelo C -->
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e0e0e0;">
-      <button class="btn primary" onclick="compartirLinkAdmin()" style="margin-bottom:6px;">📱 Compartir link admin con docente nueva</button>
-      <p class="hint" style="margin:0 0 12px;">Pre-arma un mensaje para WhatsApp con el link del panel admin para sumar una docente al equipo administrador (después de cargar su mail).</p>
-      <button class="btn secondary" onclick="imprimirQR()" style="margin-bottom:6px;">🖨 Imprimir QR para sala docentes</button>
-      <p class="hint" style="margin:0;">Genera vista imprimible con el QR grande del panel docentes para pegar en sala.</p>
-    </div>
+    <!-- Sesión 5 chunk G UX refactor — solo Imprimir QR queda acá (panel docentes
+         público, mismo concepto que el QR + Copiar link). El botón Compartir admin
+         se movió a la sección Equipo Docente al lado de "+ Sumar nueva docente". -->
+    <button class="btn secondary" onclick="imprimirQR()" style="margin-top:12px;">🖨 Imprimir QR para sala docentes</button>
+    <p class="hint" style="margin:6px 0 0;">Genera vista imprimible con el QR grande del panel docentes para pegar en la sala.</p>
   </section>
 
   <!-- Sesión 5 chunk G — sección "Recordatorios sugeridos".
