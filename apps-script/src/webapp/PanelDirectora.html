@@ -562,12 +562,6 @@
     <div class="meta"><?= ctx.schoolName ?><? if (ctx.location) { ?> · <?= ctx.location ?><? } ?><? if (ctx.year) { ?> · <?= ctx.year ?><? } ?></div>
   </header>
 
-  <section>
-    <h2>📋 Estado de tu configuración</h2>
-    <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.formsActive ?> formularios activos<? if (ctx.cfgSummary.formsTotal && ctx.cfgSummary.formsTotal !== ctx.cfgSummary.formsActive) { ?><span style="color:#888;font-size:14px;">&nbsp;(de <?= ctx.cfgSummary.formsTotal ?> disponibles)</span><? } ?></div>
-    <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.sectionCount ?> secciones configuradas</div>
-  </section>
-
   <section class="eq-resumen-section">
     <h2>👥 Mi equipo hoy</h2>
     <div class="eq-resumen-row">
@@ -679,6 +673,12 @@
       </details>
     <? }); ?>
     <p class="hint">Cada link abre la carpeta de Drive con los documentos cargados.</p>
+  </section>
+
+  <section>
+    <h2>📋 Estado de tu configuración</h2>
+    <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.formsActive ?> formularios activos<? if (ctx.cfgSummary.formsTotal && ctx.cfgSummary.formsTotal !== ctx.cfgSummary.formsActive) { ?><span style="color:#888;font-size:14px;">&nbsp;(de <?= ctx.cfgSummary.formsTotal ?> disponibles)</span><? } ?></div>
+    <div class="status-row"><span class="check">✓</span> <?= ctx.cfgSummary.sectionCount ?> secciones configuradas</div>
   </section>
 
   <section>
