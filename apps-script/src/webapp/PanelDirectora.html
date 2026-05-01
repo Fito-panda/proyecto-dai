@@ -593,7 +593,7 @@
       <button type="button" class="btn secondary eq-sumar-btn" id="btnSumar">+ Sumar nueva docente</button>
     </div>
 
-    <details class="eq-group" open>
+    <details class="eq-group">
       <summary class="eq-group-summary">
         Activas (<?= ctx.equipo.activas.length ?>)
       </summary>
@@ -613,7 +613,7 @@
       </ul>
     </details>
 
-    <details class="eq-group" open>
+    <details class="eq-group">
       <summary class="eq-group-summary">
         De licencia (<?= ctx.equipo.licencia.length ?>)
       </summary>
@@ -654,6 +654,33 @@
     </details>
   </section>
 
+  <section class="mr-section">
+    <div class="mr-section-header">
+      <h2>📂 Mis respuestas por formulario</h2>
+      <a class="mr-global-btn" href="<?= ctx.yearFolderUrl || '#' ?>" target="_blank" rel="noopener noreferrer">📁 Ir a las carpetas →</a>
+    </div>
+    <? ctx.phaseOrder.forEach(function(phase) { ?>
+      <? var items = (ctx.folderLinksByPhase && ctx.folderLinksByPhase[phase]) || []; ?>
+      <? if (items.length === 0) return; ?>
+      <details class="mr-group">
+        <summary class="mr-group-summary">
+          <span><?= ctx.phaseLabels[phase].icon ?> <?= ctx.phaseLabels[phase].label ?></span>
+          <span class="mr-group-count">(<?= items.length ?> formulario<?= items.length === 1 ? '' : 's' ?>)</span>
+        </summary>
+        <ul class="mr-list">
+        <? items.forEach(function(item) { ?>
+          <? if (item.url && item.url !== '#') { ?>
+            <li><a class="mr-item" href="<?= item.url ?>" target="_blank" rel="noopener noreferrer"><span><?= item.title ?></span><span class="mr-item-arrow">→</span></a></li>
+          <? } else { ?>
+            <li class="mr-empty"><?= item.title ?> (no disponible)</li>
+          <? } ?>
+        <? }); ?>
+        </ul>
+      </details>
+    <? }); ?>
+    <p class="hint">Cada link abre la carpeta de Drive con los documentos cargados.</p>
+  </section>
+
   <section>
     <h2>⚙️ Acciones principales</h2>
     <a class="btn secondary" href="<?= ctx.onboardingFormUrl ?>" target="_blank">
@@ -681,33 +708,6 @@
     <button class="btn success" onclick="copyLink()">📋 Copiar link para WhatsApp</button>
     <a class="btn secondary" href="<?= ctx.panelDocentesUrl ?>" target="_blank">Abrir panel de prueba</a>
     <span class="url" style="display:block;font-family:monospace;font-size:11px;color:#888;word-break:break-all;margin-top:8px;"><?= ctx.panelDocentesUrl || '(URL disponible tras publicar el Panel)' ?></span>
-  </section>
-
-  <section class="mr-section">
-    <div class="mr-section-header">
-      <h2>📂 Mis respuestas por formulario</h2>
-      <a class="mr-global-btn" href="<?= ctx.yearFolderUrl || '#' ?>" target="_blank" rel="noopener noreferrer">📁 Ir a las carpetas →</a>
-    </div>
-    <? ctx.phaseOrder.forEach(function(phase) { ?>
-      <? var items = (ctx.folderLinksByPhase && ctx.folderLinksByPhase[phase]) || []; ?>
-      <? if (items.length === 0) return; ?>
-      <details class="mr-group" <?= phase === 'pedagogica' ? 'open' : '' ?>>
-        <summary class="mr-group-summary">
-          <span><?= ctx.phaseLabels[phase].icon ?> <?= ctx.phaseLabels[phase].label ?></span>
-          <span class="mr-group-count">(<?= items.length ?> formulario<?= items.length === 1 ? '' : 's' ?>)</span>
-        </summary>
-        <ul class="mr-list">
-        <? items.forEach(function(item) { ?>
-          <? if (item.url && item.url !== '#') { ?>
-            <li><a class="mr-item" href="<?= item.url ?>" target="_blank" rel="noopener noreferrer"><span><?= item.title ?></span><span class="mr-item-arrow">→</span></a></li>
-          <? } else { ?>
-            <li class="mr-empty"><?= item.title ?> (no disponible)</li>
-          <? } ?>
-        <? }); ?>
-        </ul>
-      </details>
-    <? }); ?>
-    <p class="hint">Cada link abre la carpeta de Drive con los documentos cargados.</p>
   </section>
 
   <section>
