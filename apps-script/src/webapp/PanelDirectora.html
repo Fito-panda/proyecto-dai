@@ -217,6 +217,87 @@
     }
 
     /* ========================================================================
+       Paso 21 (sesión 4 2026-05-01) — sección "Mis respuestas por formulario".
+       Refactor de lista plana → 4 grupos colapsibles con carpetas Drive.
+       Prefix .mr- para evitar colisión con .eq-* del paso 17/18.
+       ======================================================================== */
+    .mr-section { margin-bottom: 28px; }
+    .mr-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+    .mr-section-header h2 { margin: 0; font-size: 18px; color: #2b4a6f; }
+    .mr-global-btn {
+      background: white;
+      color: #2b4a6f;
+      border: 1.5px solid #c5cedc;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .mr-global-btn:hover { background: #f7f9fb; border-color: #2b4a6f; }
+    .mr-group {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .mr-group-summary {
+      padding: 12px 14px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      color: #2b4a6f;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mr-group-summary::-webkit-details-marker { display: none; }
+    .mr-group-summary::before {
+      content: '▶';
+      font-size: 11px;
+      color: #888;
+      transition: transform 0.15s;
+    }
+    .mr-group[open] > .mr-group-summary::before { transform: rotate(90deg); }
+    .mr-group-count {
+      color: #888;
+      font-weight: 400;
+      font-size: 14px;
+      margin-left: auto;
+    }
+    .mr-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-top: 1px solid #f0f3f7;
+    }
+    .mr-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      text-decoration: none;
+      color: #1a1a1a;
+      border-bottom: 1px solid #f0f3f7;
+    }
+    .mr-list > li:last-child .mr-item { border-bottom: none; }
+    .mr-item:hover { background: #f7f9fb; }
+    .mr-item-arrow { color: #888; font-size: 18px; }
+    .mr-empty { padding: 12px 14px; color: #888; font-size: 14px; font-style: italic; }
+    @media (max-width: 480px) {
+      .mr-section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .mr-global-btn { width: 100%; text-align: center; box-sizing: border-box; }
+    }
+
+    /* ========================================================================
        Paso 17.2 — sección Equipo Docente.
        Prefix .eq- para evitar colisión con selectores existentes (SPOF 48).
        ======================================================================== */
@@ -602,18 +683,31 @@
     <span class="url" style="display:block;font-family:monospace;font-size:11px;color:#888;word-break:break-all;margin-top:8px;"><?= ctx.panelDocentesUrl || '(URL disponible tras publicar el Panel)' ?></span>
   </section>
 
-  <section>
-    <h2>📂 Mis respuestas por formulario</h2>
-    <ul class="sheet-list">
-    <? ctx.sheetLinks.forEach(function(s) { ?>
-      <? if (s.exists) { ?>
-        <li><a class="sheet-link" href="<?= s.url ?>" target="_blank"><span><?= s.title ?></span><span class="arrow">→</span></a></li>
-      <? } else { ?>
-        <li><span class="sheet-link missing"><span><?= s.title ?> <em>(aún no generado)</em></span><span class="arrow">—</span></span></li>
-      <? } ?>
+  <section class="mr-section">
+    <div class="mr-section-header">
+      <h2>📂 Mis respuestas por formulario</h2>
+      <a class="mr-global-btn" href="<?= ctx.yearFolderUrl || '#' ?>" target="_blank" rel="noopener noreferrer">📁 Ir a las carpetas →</a>
+    </div>
+    <? ctx.phaseOrder.forEach(function(phase) { ?>
+      <? var items = (ctx.folderLinksByPhase && ctx.folderLinksByPhase[phase]) || []; ?>
+      <? if (items.length === 0) return; ?>
+      <details class="mr-group" <?= phase === 'pedagogica' ? 'open' : '' ?>>
+        <summary class="mr-group-summary">
+          <span><?= ctx.phaseLabels[phase].icon ?> <?= ctx.phaseLabels[phase].label ?></span>
+          <span class="mr-group-count">(<?= items.length ?> formulario<?= items.length === 1 ? '' : 's' ?>)</span>
+        </summary>
+        <ul class="mr-list">
+        <? items.forEach(function(item) { ?>
+          <? if (item.url && item.url !== '#') { ?>
+            <li><a class="mr-item" href="<?= item.url ?>" target="_blank" rel="noopener noreferrer"><span><?= item.title ?></span><span class="mr-item-arrow">→</span></a></li>
+          <? } else { ?>
+            <li class="mr-empty"><?= item.title ?> (no disponible)</li>
+          <? } ?>
+        <? }); ?>
+        </ul>
+      </details>
     <? }); ?>
-    </ul>
-    <p class="hint">Cada link abre el Sheet con todas las respuestas recibidas de ese formulario.</p>
+    <p class="hint">Cada link abre la carpeta de Drive con los documentos cargados.</p>
   </section>
 
   <section>

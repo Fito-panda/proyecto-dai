@@ -300,6 +300,22 @@ const WebApp = (function() {
       // garantiza que token (col 10) NO viaja al frontend (SPOF 29 bloqueante).
       ctx.equipo = _readEquipoDocente();
       ctx.deployVersion = _getDeployVersionCached();
+      // Paso 21 (sesión 4 2026-05-01): refeature "Mis respuestas por
+      // formulario" — agrupado por phase + carpetas Drive con docs reales.
+      // Try/catch defensivo: si falla, panel sigue rindiendo con sheetLinks
+      // viejo (lista plana). MR-5 / AT-22 cazada del auditor técnico.
+      try {
+        ctx.folderLinksByPhase = _getFolderLinksCached(year);
+      } catch (err) {
+        Logger.log('[WebApp] folderLinksByPhase fallback []: ' + (err && err.message));
+        ctx.folderLinksByPhase = {};
+      }
+      try {
+        ctx.yearFolderUrl = _getYearFolderUrl(year);
+      } catch (err) {
+        Logger.log('[WebApp] yearFolderUrl fallback #: ' + (err && err.message));
+        ctx.yearFolderUrl = '#';
+      }
     } else {
       ctx.formsByPhase = _getFormsByPhase();
     }
@@ -332,6 +348,104 @@ const WebApp = (function() {
         exists: exists
       };
     });
+  }
+
+  // Paso 21 (sesión 4 2026-05-01): wrapper try/catch para resolver folder URL
+  // desde PropertiesRegistry. Si la carpeta fue borrada manualmente o el
+  // registry tiene un ID stale, retorna '#' sin tirar (AT-22 / MR-5).
+  function _safeGetFolderUrl(registryKey) {
+    try {
+      const entry = PropertiesRegistry.get(registryKey);
+      if (!entry || !entry.id) return '#';
+      const folder = DriveApp.getFolderById(entry.id);
+      return folder.getUrl();
+    } catch (err) {
+      Logger.log('[WebApp] _safeGetFolderUrl ' + registryKey + ': ' + (err && err.message));
+      return '#';
+    }
+  }
+
+  // Paso 21: URL del yearFolder (`<RAIZ>/<YEAR>/`). Usado por el botón
+  // global "Ir a las carpetas →" del header de "Mis respuestas".
+  function _getYearFolderUrl(year) {
+    return _safeGetFolderUrl('folder:' + year);
+  }
+
+  // Paso 21: refeature de "Mis respuestas por formulario" del PanelDirectora.
+  // Reemplaza el render de `_getSheetLinks` (lista plana de Sheets crudos) por
+  // grouping por phase + carpetas Drive con documentos reales. Forms con
+  // FILE_UPLOAD apuntan a la carpeta destino del adjunto. Forms sin FILE_UPLOAD
+  // (F07 Novedades) hacen fallback al Sheet de respuestas (MR-1).
+  function _getFolderLinks(year) {
+    if (typeof FORMS_CFG === 'undefined') return {};
+    const formsToShow = _filterByOnboardingFlags(FORMS_CFG);
+    const byPhase = {};
+    PHASE_ORDER.forEach(function(p) { byPhase[p] = []; });
+
+    formsToShow.forEach(function(form) {
+      // Excluir operativos del Equipo Docente (paso 8 plan v3) — solo
+      // phases pedagogica/institucional/comunicacion/admin renderizan acá.
+      if (PHASE_ORDER.indexOf(form.phase) === -1) return;
+
+      // Buscar el primer FILE_UPLOAD del form para sacar la carpeta destino.
+      let fileUploadItem = null;
+      if (form.items && form.items.length) {
+        for (let i = 0; i < form.items.length; i++) {
+          if (form.items[i].type === 'FILE_UPLOAD' && form.items[i].folderPath) {
+            fileUploadItem = form.items[i];
+            break;
+          }
+        }
+      }
+
+      const entry = {
+        formId: form.id,
+        title: form.title,
+        hasFileUpload: !!fileUploadItem,
+        url: '#'
+      };
+
+      if (fileUploadItem) {
+        // Carpeta destino del FILE_UPLOAD (ej. 01-Gestion-Pedagogica/Planificaciones).
+        const registryKey = 'folder:' + year + '/' + fileUploadItem.folderPath;
+        entry.url = _safeGetFolderUrl(registryKey);
+      } else {
+        // Fallback: Sheet de respuestas crudo (forms sin FILE_UPLOAD, ej. F07).
+        const sheetKey = 'sheet:' + form.sheetName + '-' + year;
+        const sheetEntry = PropertiesRegistry.get(sheetKey);
+        entry.url = (sheetEntry && sheetEntry.id)
+          ? 'https://docs.google.com/spreadsheets/d/' + sheetEntry.id + '/edit'
+          : '#';
+      }
+
+      byPhase[form.phase].push(entry);
+    });
+
+    return byPhase;
+  }
+
+  // Paso 21: wrapper con CacheService (TTL 5 min) sobre _getFolderLinks.
+  // Performance: la primera llamada toca DriveApp ~11 veces (~3-5s en
+  // mobile rural). Llamadas siguientes leen del cache (~50ms). MR-8 / AT-5
+  // cazada del auditor técnico (NO usar PropertiesRegistry como cache).
+  function _getFolderLinksCached(year) {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'folderlinks:' + year;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (err) {
+        Logger.log('[WebApp] folderlinks cache parse fail, recomputando: ' + (err && err.message));
+      }
+    }
+    const fresh = _getFolderLinks(year);
+    try {
+      cache.put(cacheKey, JSON.stringify(fresh), 300);
+    } catch (err) {
+      Logger.log('[WebApp] folderlinks cache.put fail (no rompe): ' + (err && err.message));
+    }
+    return fresh;
   }
 
   function _getFormsByPhase() {
