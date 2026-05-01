@@ -31,33 +31,6 @@ function buildAllDocTemplates() {
 }
 
 /**
- * @deprecated 2026-04-28 plan v3 paso 8.5. Reemplazada por OnSubmitDispatcher
- * (paso 9). NO usar — instalaria triggers duplicados que coexistirian con el
- * dispatcher consolidado y generarian docs duplicados por cada submission de
- * F05/F06/F08-F14 (Loop 3 hallazgo 5-A). Para limpiar triggers viejos: usar
- * uninstallFormalFormTriggers().
- *
- * installFormalFormTriggers — ejecutar UNA VEZ tras buildAllDocTemplates para
- * instalar los 9 triggers onFormSubmit que disparan generación automática de
- * Google Doc al recibir respuestas de los Forms formales.
- * Idempotente: reusa triggers existentes.
- * Fase 2.5 del plan v9.
- */
-function installFormalFormTriggers() {
-  return FormalFormsTriggerManager.install();
-}
-
-/**
- * uninstallFormalFormTriggers — paso 8.5/20 plan v3 baja/suplentes-docente
- * (2026-04-28). Desinstala los 9 triggers onFormalFormSubmit antes de instalar
- * el dispatcher consolidado del paso 9. NO toca otros triggers (el del F00
- * onboarding y futuros del dispatcher quedan intactos). Idempotente.
- */
-function uninstallFormalFormTriggers() {
-  return FormalFormsTriggerManager.uninstall();
-}
-
-/**
  * installSubmitDispatcher — paso 9/20 plan v3 baja/suplentes-docente
  * (2026-04-28, v2 post-validacion). Instala N triggers Sheet-bound (uno por
  * cada Sheet de respuestas en DISPATCH_TABLE) con handler único

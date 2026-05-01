@@ -206,7 +206,7 @@ function _resetDeployVersionCache() {
  * En modo "Me" getActiveUser retorna owner siempre (rompe identificación
  * cross-account).
  *
- * Retorna shape compatible con TokenService.validate:
+ * Retorna shape:
  *   { authorized, docente: {apellido, nombre, email, estado} | null, reason }
  *
  * Valores posibles de reason:
@@ -253,7 +253,8 @@ function _resolveAuthByEmail() {
     if (estado === 'No disponible') {
       return { authorized: false, docente: docente, reason: 'estado-no-disponible' };
     }
-    // Activa Y Licencia autorizadas (mismo criterio que TokenService.validate).
+    // Activa Y Licencia autorizadas (la docente con licencia mantiene acceso
+    // porque puede volver). Solo No disponible se rechaza.
     return { authorized: true, docente: docente, reason: null };
   }
   return { authorized: false, docente: null, reason: 'email-not-in-docentes' };

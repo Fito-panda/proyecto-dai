@@ -1,165 +1,29 @@
 /**
- * FormalFormsTriggerManager.gs — instala triggers onFormSubmit para los 9
- * Forms formales + dispatcher que genera el Google Doc correspondiente.
- * Fase 2.5 del plan v9 implementada 2026-04-21 por FORJA2 (modo autónomo).
+ * FormalFormsTriggerManager.gs — dispatcher que genera el Google Doc
+ * correspondiente para los 9 Forms formales (F05-F14).
  *
- * Responsabilidad:
- *   - `install()`: registra triggers installable onFormSubmit por cada uno de
- *     los 9 Forms formales (F05-F14 excluyendo F01-F04 y F07, que son los
- *     pedagógicos y de novedades sin generación de Doc). Cada trigger apunta
- *     al handler global `onFormalFormSubmit` en Main.gs.
- *     Guarda un reverse lookup `{ formInstanceId → formId }` en
- *     PropertiesRegistry para que el handler pueda identificar cuál form disparó.
- *   - `handleSubmit(e)`: dispatcher. Recibe el event del trigger, identifica
- *     qué form formal disparó (via e.source.getId() + reverse lookup),
- *     resuelve la carpeta destino de DOC_TEMPLATES[formId].outputFolderPath,
- *     extrae responseData via _extractResponseData(e) (maneja Form-based y
+ * Fase 2.5 del plan v9 implementada 2026-04-21 por FORJA2.
+ * Sesión 5 chunk E (2026-05-01): eliminados métodos install() + uninstall()
+ * — funciones zombi post paso 8.5 plan v3 (los Form-bound triggers fueron
+ * reemplazados por Sheet-bound dispatcher en OnSubmitDispatcher.gs paso 9).
+ *
+ * Responsabilidad post-chunk-E:
+ *   - `processFormalSubmit(e, formId)`: procesa la submission, resuelve la
+ *     carpeta destino de DOC_TEMPLATES[formId].outputFolderPath, extrae
+ *     responseData via _extractResponseData(e) (maneja Form-based y
  *     Spreadsheet-based event shapes), y llama DocGenerator.generate(...).
- *
- * Pre-condiciones para install():
- *   - setupAll() ya corrió (los 9 Forms F05-F14 están creados + registrados
- *     en PropertiesRegistry con keys `form:Fxx`).
- *   - buildAllDocTemplates() ya corrió (los 9 templates Google Docs están
- *     creados + registrados con keys `docTemplate:Fxx`).
- *
- * Orden operativo al instalar el sistema:
- *   1. bootstrapTemplate() (Fase 2) → crea Template + Form onboarding.
- *   2. Directora envía Form onboarding → trigger dispara setupAll() → crea los
- *      11 Forms del ciclo + carpetas.
- *   3. Fito corre buildAllDocTemplates() → crea 9 templates Google Docs.
- *   4. Fito corre installFormalFormTriggers() (wrapper en Main.gs) → instala
- *      9 triggers apuntando a onFormalFormSubmit.
- *   5. A partir de ahí, cualquier submit de F05/F06/F08-F14 genera Doc automático.
- *
- * Límites Apps Script:
- *   - Máximo 20 triggers installable por script. Con onboarding + 9 formales = 10
- *     triggers totales. Queda margen para Fase 3+ (ej. time-based para reportes).
+ *     Invocado desde OnSubmitDispatcher.gs por cada Sheet-bound trigger
+ *     correspondiente a un Form formal (paso 9 plan v3).
+ *   - `handleSubmit(e)`: wrapper @deprecated retro-compatible para Form-bound
+ *     triggers viejos. NO se usa post paso 8.5 (no hay triggers Form-bound).
+ *   - `_extractResponseData(e)`: utilidad pública usada por SmokeTests.
+ *   - Constantes HANDLER_NAME, REVERSE_LOOKUP_KEY usadas por SmokeTests.
  */
 
 const FormalFormsTriggerManager = {
 
   HANDLER_NAME: 'onFormalFormSubmit',
   REVERSE_LOOKUP_KEY: 'formalFormsReverseLookup',
-
-  /**
-   * install() — entry point. Registra 9 triggers installable.
-   * Retorna: { installed, reused, skipped, failed, reverseLookup }.
-   */
-  install() {
-    SetupLog.info('===== FormalFormsTriggerManager.install iniciando =====', {
-      timestamp: new Date().toISOString()
-    });
-
-    const results = {
-      installed: [],
-      reused: [],
-      skipped: [],
-      failed: []
-    };
-    const self = this;
-    const reverseLookup = {};
-
-    DOC_TEMPLATE_FORM_IDS.forEach(function(formId) {
-      try {
-        const r = self._ensureTrigger(formId);
-        reverseLookup[r.formInstanceId] = formId;
-        if (r.created) {
-          results.installed.push({ formId: formId, triggerUid: r.triggerUid });
-        } else {
-          results.reused.push({ formId: formId, triggerUid: r.triggerUid });
-        }
-      } catch (err) {
-        SetupLog.error('FormalFormsTriggerManager: fallo instalando trigger', {
-          formId: formId,
-          err: String(err && err.message || err)
-        });
-        results.failed.push({ formId: formId, error: String(err && err.message || err) });
-      }
-    });
-
-    PropertiesRegistry.set(this.REVERSE_LOOKUP_KEY, reverseLookup);
-
-    SetupLog.info('FormalFormsTriggerManager.install OK', {
-      installed: results.installed.length,
-      reused: results.reused.length,
-      failed: results.failed.length,
-      totalTriggersInScript: ScriptApp.getProjectTriggers().length
-    });
-
-    return Object.assign({}, results, {
-      reverseLookup: reverseLookup,
-      message: 'Triggers: ' + results.installed.length + ' instalados, ' +
-        results.reused.length + ' reusados, ' + results.failed.length + ' fallos.'
-    });
-  },
-
-  /**
-   * uninstall() — desinstala todos los triggers onFormalFormSubmit.
-   * Paso 8.5/20 plan v3 baja/suplentes-docente (2026-04-28).
-   *
-   * Necesario antes del paso 9 (OnSubmitDispatcher consolidado) para evitar
-   * coexistencia de 2 handlers que escribirian docs duplicados por cada
-   * submission de F05/F06/F08-F14 (Loop 3 hallazgo 2-B).
-   *
-   * Itera ScriptApp.getProjectTriggers(), filtra los onFormSubmit con handler
-   * onFormalFormSubmit, los borra. NO toca triggers con otros handlers
-   * (ej. onFormSubmitHandler del F00 onboarding queda intacto).
-   *
-   * Limpia tambien el reverse lookup cache en PropertiesRegistry.
-   *
-   * Idempotente: si no hay triggers que matcheen, retorna deleted:0 sin error.
-   *
-   * Retorna: { deleted, kept, failed, message }.
-   */
-  uninstall() {
-    SetupLog.info('===== FormalFormsTriggerManager.uninstall iniciando =====', {
-      timestamp: new Date().toISOString()
-    });
-
-    const allTriggers = ScriptApp.getProjectTriggers();
-    let deleted = 0;
-    let kept = 0;
-    let failed = 0;
-
-    allTriggers.forEach(function(t) {
-      const handler = t.getHandlerFunction();
-      const eventType = t.getEventType();
-      const uid = t.getUniqueId();
-
-      if (handler === 'onFormalFormSubmit' &&
-          eventType === ScriptApp.EventType.ON_FORM_SUBMIT) {
-        try {
-          ScriptApp.deleteTrigger(t);
-          deleted++;
-          SetupLog.info('Trigger borrado', { uid: uid, handler: handler });
-        } catch (err) {
-          SetupLog.warn('Fallo borrar trigger', { uid: uid, err: String(err) });
-          failed++;
-        }
-      } else {
-        kept++;
-      }
-    });
-
-    // Limpiar cache reverse lookup (ya no aplica sin triggers).
-    try {
-      PropertiesRegistry.remove(this.REVERSE_LOOKUP_KEY);
-    } catch (err) {
-      SetupLog.warn('No se pudo limpiar reverse lookup', { err: String(err) });
-    }
-
-    const result = {
-      deleted: deleted,
-      kept: kept,
-      failed: failed,
-      message: 'Triggers onFormalFormSubmit eliminados: ' + deleted +
-        '. Triggers preservados (otros handlers): ' + kept +
-        (failed > 0 ? '. Fallos: ' + failed : '') + '.'
-    };
-
-    SetupLog.info('FormalFormsTriggerManager.uninstall OK', result);
-    return result;
-  },
 
   /**
    * handleSubmit(e) — wrapper publico para Form-bound triggers (LEGACY).
@@ -170,10 +34,12 @@ const FormalFormsTriggerManager = {
    * processFormalSubmit(e, formId).
    *
    * @deprecated post paso 8.5 plan v3. Los Form-bound triggers fueron
-   * desinstalados via uninstall(). El paso 9 (OnSubmitDispatcher) llama
-   * processFormalSubmit(e, formId) directo desde el trigger Sheet-bound,
-   * sin pasar por este wrapper. Este metodo queda como retro-compatibilidad
-   * por si alguien re-instala los triggers viejos.
+   * desinstalados manualmente desde IDE (los métodos install/uninstall que
+   * los manejaban se eliminaron en chunk E sesión 5 2026-05-01). El paso 9
+   * (OnSubmitDispatcher) llama processFormalSubmit(e, formId) directo desde
+   * el trigger Sheet-bound, sin pasar por este wrapper. Este método queda
+   * como retro-compatibilidad — si en el futuro se vuelve a usar, hay que
+   * crear el trigger Form-bound desde IDE manualmente o reescribir install().
    */
   handleSubmit(e) {
     if (!e || !e.source) {
