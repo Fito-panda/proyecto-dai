@@ -228,6 +228,42 @@ Pedagógico es paralelo).
 - Decisiones tomadas explícitas: no re-decidir lo que ya se decidió en sesión 5.
 - Anti-firma-cierre + anti-pausa explícitos en cada prompt.
 
+**ACTUALIZACIÓN CRÍTICA 2026-05-02 — pre-condición OBLIGATORIA lectura código real**
+
+Sesión 6 arrancó con prompt B y diseñó 4-5 hs paso 22 distribuido sobre arquitectura imaginaria. El prompt B NO obligaba a leer código real del proyecto. Cazada documentada en `snapshot-022-cazada-tool-blindness-escala-mayor.md`.
+
+**SUMAR a CUALQUIER prompt de arranque sesión (A o B), como pre-condición ANTES de los 7 docs canónicos**:
+
+```
+PRE-CONDICIÓN OBLIGATORIA — leer código real del proyecto:
+
+1. README.md del repo (flow declarado por humanos).
+2. MANIFEST.md.
+3. docs/design/01-problema.md (problema que DAI resuelve).
+4. docs/design/02-non-goals.md (qué NO hace DAI).
+5. docs/design/03-arquitectura.md (arquitectura declarada D1).
+6. docs/design/04-landing-wordpress.md (landing /ayuda módulos).
+7. apps-script/src/webapp/PanelDocentes.html ENTERO (flow día a día docentes).
+8. apps-script/src/webapp/PanelDirectora.html ENTERO (no solo secciones).
+
+Sin estos 8 archivos leídos, NO diseñar arquitectura. NO asumir el modelo
+del proyecto desde memoria + plan v3 + snapshots — esos son contexto de
+SESIÓN, no del PROYECTO. El proyecto vive en código + docs/design/ + README.
+
+Si el prompt te listó solo doctrina sin código real, ese es el bug — leélo
+igual antes de diseñar.
+
+Caso seminal del por qué: snapshot-022. Sesión 6 + asesor sesión 5 diseñaron
+paso 22 distribuido cross-Sheet sobre Modelo X SaaS multi-tenant 10k
+escuelas. Modelo real del proyecto: cada escuela su Sheet bound + script
+bound + Web App propio (UN tenant por escuela, container-bound). 4-5 hs
+de diseño imaginario + costo Anthropic + paciencia Fito perdidos.
+```
+
+Esta pre-condición se eleva a costumbre canónica nueva pendiente:
+`feedback_verificar-codigo-real-antes-de-disenar.md` (memoria persistente
+proyecto-dai). Próxima sesión la crea.
+
 **Sobre cuándo usar cada uno**:
 - Camino A si Fito siente que el meta-trabajo es prioritario y no quiere que se repita el Alzheimer en la próxima sesión densa.
 - Camino B si Fito quiere terminar DAI primero (cerca del 95%) y meter el meta-trabajo cuando arranque otro proyecto denso (Vexion, Pulpo).

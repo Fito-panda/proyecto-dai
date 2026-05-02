@@ -198,6 +198,43 @@ CLAUDE-CORE/         dai-baja-suplentes-v3
 
 Este plan continuidad fue ESCRITO durante el paréntesis meta-trabajo post-cazada Fito sobre "Alzheimer post-cierre". Originalmente el cierre sesión 5 iba a ser solo refactor modelo C cerrado. El paréntesis abrió una capa B nueva (meta-trabajo) que coexiste con la capa A (producto DAI). Ambas pendientes para sesión 6.
 
+## 9. ACTUALIZACIÓN 2026-05-02 — Paso 22 DESCARTADO post-cazada sesión 6
+
+Sesión 6 arrancó por prompt B y diseñó 4-5 hs paso 22 distribuido cross-Sheet sobre **arquitectura imaginaria** (Modelo X SaaS multi-tenant 10k escuelas, web app único del operador con sheetId param). Cazada doble (sesión 6 + asesor sesión 5) documentada en `snapshot-022-cazada-tool-blindness-escala-mayor.md`.
+
+**Modelo real del proyecto** (cazado por sesión 6 después de leer paneles + docs originales):
+- Cada escuela tiene SU PROPIO Sheet con SU PROPIO script container-bound + SU PROPIO Web App.
+- README.md línea 11-17 declara explícito: "Menú DAI → Generar todo desde compu".
+- Setup requiere PC primera vez (Escenario 3 mix). Mobile-only end-to-end NO factible (deploy Web App sin alternativa mobile).
+- Fito confirmó: *"a lo sumo la directora pedirá prestada una PC"*. Coincide con el código.
+
+**Implicancia**: paso 22 web app configuradora **DESCARTADO ENTERO**. NO se ejecuta. El producto DAI ya implementa Escenario 3 en el código actual. Modelo C V24 funciona porque cada escuela tiene su Sheet bound + script bound — NO multi-tenant.
+
+**Replan post-reversión** (sigue vigente lo que YA estaba en sección 2 capa A roadmap producto):
+1. R9.A — 4 corridas operador.
+2. R9.B — Demo Fito-como-Nelly desde adolfoprunotto@gmail.com (mobile + desktop).
+3. Paso 20 docs (4 docs + README + Módulo 0 video).
+4. Acciones manuales pendientes (re-bootstrap plantilla pública + col 10 Token cleanup).
+
+**Lo que NO se hace**:
+- ❌ Paso 22 distribuido (over-engineering descartado).
+- ❌ Modelo C distribuido cross-Sheet (innecesario — cada escuela ya tiene su Sheet bound).
+- ❌ Hooks simple triggers cross-Sheet (problema imaginario).
+- ❌ Library multi-tenant (modelo no aplicable).
+
+**Reversión técnica pendiente para próxima sesión** (sesión 6 lo tiene mapeado):
+- `clasp undeploy AKfycbwS15tnUE3mteXlJeYYCPcoyOwYc26ziSO7yI-vzRCYgshKoDCONqWwHeLA9mA7ysDh` (V25 test).
+- `git checkout apps-script/src/webapp/WebApp.gs` (revertir `_testOpenById`).
+- `git checkout feat/baja-sumar-docente-v3 && git branch -D feat/paso-22-distribuido`.
+- Mover `paso-22-pre-fase-cuestionar-plan.md` + `refactor-paso-22-mapeo.md` + `chunk-22.0b-research-bloqueante-cierre.md` a `docs/design/descartados/` con frontmatter "descartado por cazada autocrítica + asesor sobre tool blindness escala mayor 2026-05-02".
+
+**Prioridad arranque sesión 7**:
+- (a) Reversión técnica primero (15 min).
+- (b) Crear `feedback_verificar-codigo-real-antes-de-disenar.md` en memoria persistente (15 min).
+- (c) Después: R9.A o paso 20 docs según decisión Fito.
+
+Costo estimado total cagada paso 22 imaginario: ~9 horas-persona perdidas (5 hs sesión 6 + 2 hs asesor sesión 5 + 2 hs Fito cazando) + costo Anthropic + 1 deployment test reversible.
+
 ## 9. Firma
 
 Plan continuidad escrito al cierre sesión 5 FORJA DAI siguiente, post-verdict del agente background sobre `Session.getActiveUser` + post-cazada Fito Alzheimer + post-paréntesis meta-trabajo con triada DAI aplicada. La sesión 5 fue de aprox 6 horas activas con 9 commits pusheados (refactor modelo C) + 4 docs cierre paréntesis (snapshot-021 + checklist DAI update + este plan + plan-meta-trabajo-anti-alzheimer-sesion-6) + 4 reportes de agentes.
