@@ -1,39 +1,23 @@
 /**
- * FormalFormsTriggerManager.gs — instala triggers onFormSubmit para los 9
- * Forms formales + dispatcher que genera el Google Doc correspondiente.
- * Fase 2.5 del plan v9 implementada 2026-04-21 por FORJA2 (modo autónomo).
+ * FormalFormsTriggerManager.gs — dispatcher que genera el Google Doc
+ * correspondiente para los 9 Forms formales (F05-F14).
  *
- * Responsabilidad:
- *   - `install()`: registra triggers installable onFormSubmit por cada uno de
- *     los 9 Forms formales (F05-F14 excluyendo F01-F04 y F07, que son los
- *     pedagógicos y de novedades sin generación de Doc). Cada trigger apunta
- *     al handler global `onFormalFormSubmit` en Main.gs.
- *     Guarda un reverse lookup `{ formInstanceId → formId }` en
- *     PropertiesRegistry para que el handler pueda identificar cuál form disparó.
- *   - `handleSubmit(e)`: dispatcher. Recibe el event del trigger, identifica
- *     qué form formal disparó (via e.source.getId() + reverse lookup),
- *     resuelve la carpeta destino de DOC_TEMPLATES[formId].outputFolderPath,
- *     extrae responseData via _extractResponseData(e) (maneja Form-based y
+ * Fase 2.5 del plan v9 implementada 2026-04-21 por FORJA2.
+ * Sesión 5 chunk E (2026-05-01): eliminados métodos install() + uninstall()
+ * — funciones zombi post paso 8.5 plan v3 (los Form-bound triggers fueron
+ * reemplazados por Sheet-bound dispatcher en OnSubmitDispatcher.gs paso 9).
+ *
+ * Responsabilidad post-chunk-E:
+ *   - `processFormalSubmit(e, formId)`: procesa la submission, resuelve la
+ *     carpeta destino de DOC_TEMPLATES[formId].outputFolderPath, extrae
+ *     responseData via _extractResponseData(e) (maneja Form-based y
  *     Spreadsheet-based event shapes), y llama DocGenerator.generate(...).
- *
- * Pre-condiciones para install():
- *   - setupAll() ya corrió (los 9 Forms F05-F14 están creados + registrados
- *     en PropertiesRegistry con keys `form:Fxx`).
- *   - buildAllDocTemplates() ya corrió (los 9 templates Google Docs están
- *     creados + registrados con keys `docTemplate:Fxx`).
- *
- * Orden operativo al instalar el sistema:
- *   1. bootstrapTemplate() (Fase 2) → crea Template + Form onboarding.
- *   2. Directora envía Form onboarding → trigger dispara setupAll() → crea los
- *      11 Forms del ciclo + carpetas.
- *   3. Fito corre buildAllDocTemplates() → crea 9 templates Google Docs.
- *   4. Fito corre installFormalFormTriggers() (wrapper en Main.gs) → instala
- *      9 triggers apuntando a onFormalFormSubmit.
- *   5. A partir de ahí, cualquier submit de F05/F06/F08-F14 genera Doc automático.
- *
- * Límites Apps Script:
- *   - Máximo 20 triggers installable por script. Con onboarding + 9 formales = 10
- *     triggers totales. Queda margen para Fase 3+ (ej. time-based para reportes).
+ *     Invocado desde OnSubmitDispatcher.gs por cada Sheet-bound trigger
+ *     correspondiente a un Form formal (paso 9 plan v3).
+ *   - `handleSubmit(e)`: wrapper @deprecated retro-compatible para Form-bound
+ *     triggers viejos. NO se usa post paso 8.5 (no hay triggers Form-bound).
+ *   - `_extractResponseData(e)`: utilidad pública usada por SmokeTests.
+ *   - Constantes HANDLER_NAME, REVERSE_LOOKUP_KEY usadas por SmokeTests.
  */
 
 const FormalFormsTriggerManager = {
@@ -42,114 +26,83 @@ const FormalFormsTriggerManager = {
   REVERSE_LOOKUP_KEY: 'formalFormsReverseLookup',
 
   /**
-   * install() — entry point. Registra 9 triggers installable.
-   * Retorna: { installed, reused, skipped, failed, reverseLookup }.
+   * handleSubmit(e) — wrapper publico para Form-bound triggers (LEGACY).
+   *
+   * Llamado desde onFormalFormSubmit (Main.gs) cuando un Form-bound trigger
+   * de Fase 2.5 se dispara. Resuelve formId via reverseLookup
+   * (e.source.getId() = Form ID en Form-bound trigger) y delega a
+   * processFormalSubmit(e, formId).
+   *
+   * @deprecated post paso 8.5 plan v3. Los Form-bound triggers fueron
+   * desinstalados manualmente desde IDE (los métodos install/uninstall que
+   * los manejaban se eliminaron en chunk E sesión 5 2026-05-01). El paso 9
+   * (OnSubmitDispatcher) llama processFormalSubmit(e, formId) directo desde
+   * el trigger Sheet-bound, sin pasar por este wrapper. Este método queda
+   * como retro-compatibilidad — si en el futuro se vuelve a usar, hay que
+   * crear el trigger Form-bound desde IDE manualmente o reescribir install().
    */
-  install() {
-    SetupLog.info('===== FormalFormsTriggerManager.install iniciando =====', {
-      timestamp: new Date().toISOString()
-    });
-
-    const results = {
-      installed: [],
-      reused: [],
-      skipped: [],
-      failed: []
-    };
-    const self = this;
-    const reverseLookup = {};
-
-    DOC_TEMPLATE_FORM_IDS.forEach(function(formId) {
-      try {
-        const r = self._ensureTrigger(formId);
-        reverseLookup[r.formInstanceId] = formId;
-        if (r.created) {
-          results.installed.push({ formId: formId, triggerUid: r.triggerUid });
-        } else {
-          results.reused.push({ formId: formId, triggerUid: r.triggerUid });
-        }
-      } catch (err) {
-        SetupLog.error('FormalFormsTriggerManager: fallo instalando trigger', {
-          formId: formId,
-          err: String(err && err.message || err)
-        });
-        results.failed.push({ formId: formId, error: String(err && err.message || err) });
-      }
-    });
-
-    PropertiesRegistry.set(this.REVERSE_LOOKUP_KEY, reverseLookup);
-
-    SetupLog.info('FormalFormsTriggerManager.install OK', {
-      installed: results.installed.length,
-      reused: results.reused.length,
-      failed: results.failed.length,
-      totalTriggersInScript: ScriptApp.getProjectTriggers().length
-    });
-
-    return Object.assign({}, results, {
-      reverseLookup: reverseLookup,
-      message: 'Triggers: ' + results.installed.length + ' instalados, ' +
-        results.reused.length + ' reusados, ' + results.failed.length + ' fallos.'
-    });
+  handleSubmit(e) {
+    if (!e || !e.source) {
+      SetupLog.reset();
+      SetupLog.error('handleSubmit: e.source es null. Event inválido.', {
+        triggerUid: (e && e.triggerUid) || '(unknown)'
+      });
+      this._flushSafe();
+      return;
+    }
+    const formInstanceId = e.source.getId();
+    const formId = this._findFormIdForInstance(formInstanceId);
+    if (!formId) {
+      SetupLog.reset();
+      SetupLog.warn('handleSubmit: no se identificó formId para este form instance.', {
+        formInstanceId: formInstanceId
+      });
+      this._flushSafe();
+      return;
+    }
+    return this.processFormalSubmit(e, formId);
   },
 
   /**
-   * handleSubmit(e) — dispatcher llamado desde onFormalFormSubmit (Main.gs)
-   * cuando uno de los 9 Forms formales recibe una respuesta.
+   * processFormalSubmit(e, formId) — logica core del procesamiento de un form formal.
+   * Paso 9/20 plan v3 baja/suplentes-docente (2026-04-28, refactor extract de handleSubmit).
+   *
+   * Recibe formId directo (resuelto por el caller via reverseLookup en
+   * handleSubmit, o por DISPATCH_TABLE en OnSubmitDispatcher.gs). NO necesita
+   * `e.source` ni reverseLookup — funciona con Form-bound y Sheet-bound triggers.
    *
    * Flujo:
-   *   1. Identifica formId via e.source.getId() + reverseLookup.
-   *   2. Resuelve outputFolder desde DOC_TEMPLATES[formId].outputFolderPath +
-   *      registry de folders.
-   *   3. Extrae responseData via _extractResponseData(e) — maneja tanto
-   *      Form-based trigger events (e.response.getItemResponses) como
-   *      Spreadsheet-based (e.namedValues).
-   *   4. Llama DocGenerator.generate(formId, responseData, outputFolder).
-   *   5. Loguea + flush.
+   *   1. Validar tmplMeta para formId existe en DOC_TEMPLATES.
+   *   2. Resolver outputFolder desde tmplMeta.outputFolderPath + registry.
+   *   3. Extraer responseData via _extractResponseData(e) (maneja ambos shapes
+   *      Form-based + Spreadsheet-based del event).
+   *   4. Llamar DocGenerator.generate(formId, responseData, outputFolder).
+   *   5. Log + flush via _flushSafe.
    *
-   * Error handling: NO re-throw. Un fallo acá no debe causar retry del trigger
-   * (que crearía Docs duplicados).
+   * Error handling: NO re-throw. Un fallo aquí no debe causar retry del
+   * trigger (crearia Docs duplicados).
    */
-  handleSubmit(e) {
+  processFormalSubmit(e, formId) {
     SetupLog.reset();
-    SetupLog.info('===== onFormalFormSubmit triggered =====', {
+    SetupLog.info('===== processFormalSubmit triggered =====', {
       timestamp: new Date().toISOString(),
+      formId: formId,
       triggerUid: (e && e.triggerUid) || '(unknown)'
     });
 
     try {
-      if (!e || !e.source) {
-        throw new Error('FormalFormsTriggerManager.handleSubmit: e.source es null. Event inválido.');
-      }
-
-      const formInstanceId = e.source.getId();
-      const formId = this._findFormIdForInstance(formInstanceId);
-
-      if (!formId) {
-        SetupLog.warn('FormalFormsTriggerManager: no se identificó formId para este form instance. Trigger disparó por un form no registrado como formal?', {
-          formInstanceId: formInstanceId
-        });
-        return;
-      }
-
-      SetupLog.info('Form formal identificado', {
-        formId: formId,
-        formInstanceId: formInstanceId
-      });
-
       const tmplMeta = DOC_TEMPLATES[formId];
       if (!tmplMeta) {
-        throw new Error('FormalFormsTriggerManager: DOC_TEMPLATES no tiene entry para formId "' + formId + '" (race condition?).');
+        throw new Error('processFormalSubmit: DOC_TEMPLATES no tiene entry para formId "' + formId + '".');
       }
 
-      // Fresh read de CFG para resolver folder destino vía yearFolderName.
       _resetCFGCache();
 
       const folderRegistryKey = 'folder:' + yearFolderName() + '/' + tmplMeta.outputFolderPath;
       const folderEntry = PropertiesRegistry.get(folderRegistryKey);
       if (!folderEntry || !folderEntry.id) {
         throw new Error(
-          'FormalFormsTriggerManager: folder destino "' + folderRegistryKey +
+          'processFormalSubmit: folder destino "' + folderRegistryKey +
           '" no está en registry. Correr setupAll() primero.'
         );
       }
@@ -159,7 +112,7 @@ const FormalFormsTriggerManager = {
         outputFolder = DriveApp.getFolderById(folderEntry.id);
       } catch (err) {
         throw new Error(
-          'FormalFormsTriggerManager: folder "' + folderRegistryKey +
+          'processFormalSubmit: folder "' + folderRegistryKey +
           '" tiene id "' + folderEntry.id + '" pero DriveApp no lo puede abrir. ' +
           'Posible borrado manual. Error: ' + err.message
         );
@@ -168,7 +121,7 @@ const FormalFormsTriggerManager = {
       const responseData = this._extractResponseData(e);
       const result = DocGenerator.generate(formId, responseData, outputFolder);
 
-      SetupLog.info('onFormalFormSubmit: Doc generado OK', {
+      SetupLog.info('processFormalSubmit: Doc generado OK', {
         formId: formId,
         docId: result.docId,
         docUrl: result.docUrl,
@@ -179,21 +132,30 @@ const FormalFormsTriggerManager = {
 
     } catch (err) {
       const msg = (err && err.message) || String(err);
-      SetupLog.error('onFormalFormSubmit error', {
+      SetupLog.error('processFormalSubmit error', {
+        formId: formId,
         message: msg,
         stack: err && err.stack
       });
-      console.error('onFormalFormSubmit error: ' + msg);
-      // NO re-throw — evitar retry del trigger (crearía Docs duplicados).
+      console.error('processFormalSubmit error: ' + msg);
+      // NO re-throw — evitar retry del trigger.
     } finally {
-      try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        if (ss && typeof SetupLog !== 'undefined' && SetupLog.flushTo) {
-          SetupLog.flushTo(ss);
-        }
-      } catch (flushErr) {
-        console.error('onFormalFormSubmit: no se pudo flush SetupLog: ' + flushErr);
+      this._flushSafe();
+    }
+  },
+
+  /**
+   * _flushSafe — best-effort flush del SetupLog al active spreadsheet.
+   * Usado por handleSubmit + processFormalSubmit (DRY post refactor extract).
+   */
+  _flushSafe() {
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      if (ss && typeof SetupLog !== 'undefined' && SetupLog.flushTo) {
+        SetupLog.flushTo(ss);
       }
+    } catch (flushErr) {
+      console.error('FormalFormsTriggerManager._flushSafe error: ' + flushErr);
     }
   },
 

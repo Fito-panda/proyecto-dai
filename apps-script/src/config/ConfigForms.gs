@@ -130,7 +130,7 @@ const FORMS_CFG = [
     sheetName: 'SHEET-Seguimiento-Alumnos',
     sheetFolderPath: '06-Sheets-Maestros',
     items: [
-      { type: 'DROPDOWN', title: 'Docente que registra', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Docente que registra', required: true, choicesFromList: 'docentes' },
       { type: 'DATE', title: 'Fecha', required: true },
       { type: 'DROPDOWN', title: 'Alumno/a', required: true, choicesFromList: 'alumnos' },
       { type: 'DROPDOWN', title: 'Seccion', choicesFromList: 'secciones' },
@@ -207,7 +207,7 @@ const FORMS_CFG = [
         helpText: 'Ej: Salon principal, patio, virtual' },
       { type: 'DROPDOWN', title: 'Convocada por',
         choices: ['Directora (ejemplo)', 'Docente', 'Supervision'] },
-      { type: 'CHECKBOX', title: 'Participantes', choicesFromList: 'docentes_plus_directora' },
+      { type: 'CHECKBOX', title: 'Participantes', choicesFromList: 'docentes' },
       { type: 'SHORT_TEXT', title: 'Otros participantes',
         helpText: 'Familias, supervision, invitados externos' },
       { type: 'PARAGRAPH', title: 'Orden del dia', required: true },
@@ -234,7 +234,7 @@ const FORMS_CFG = [
     items: [
       { type: 'DATE', title: 'Fecha de registro', required: true },
       { type: 'DROPDOWN', title: 'Etapa del PIE', required: true, choices: ETAPAS_PIE },
-      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes' },
       { type: 'PARAGRAPH', title: 'Objetivo del PIE trabajado',
         helpText: 'Cual de los objetivos del PIE se esta reportando' },
       { type: 'PARAGRAPH', title: 'Acciones realizadas en el periodo', required: true },
@@ -264,7 +264,7 @@ const FORMS_CFG = [
     sheetFolderPath: '06-Sheets-Maestros',
     items: [
       { type: 'DATE', title: 'Fecha', required: true },
-      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Quien registra', required: true, choicesFromList: 'docentes' },
       { type: 'CHECKBOX', title: 'Asistencia docente', choicesFromList: 'docentes',
         helpText: 'Marcar los docentes PRESENTES' },
       { type: 'SHORT_TEXT', title: 'Docentes ausentes — motivo',
@@ -470,7 +470,7 @@ const FORMS_CFG = [
         helpText: 'Descripcion o listado de lo que hay que subir' },
       { type: 'FILE_UPLOAD', title: 'Archivo con datos',
         folderPath: '05-Administracion/Pre-carga-SGE' },
-      { type: 'DROPDOWN', title: 'Preparado por', required: true, choicesFromList: 'docentes_plus_directora' },
+      { type: 'DROPDOWN', title: 'Preparado por', required: true, choicesFromList: 'docentes' },
       { type: 'SHORT_TEXT', title: 'Observaciones' }
     ]
   },
@@ -501,7 +501,84 @@ const FORMS_CFG = [
       { type: 'DROPDOWN', title: 'Estado',
         choices: ['Borrador', 'Revisado', 'Listo para SGE', 'Subido a SGE'] },
       { type: 'SHORT_TEXT', title: 'Observaciones' },
-      { type: 'DROPDOWN', title: 'Registrado por', required: true, choicesFromList: 'docentes_plus_directora' }
+      { type: 'DROPDOWN', title: 'Registrado por', required: true, choicesFromList: 'docentes' }
+    ]
+  },
+
+  // ============================================================================
+  // Paso 8 plan v3 (2026-04-27): 4 forms operativos del Panel Directora.
+  // phase='operativa' — PhaseFilter NO los muestra en el Panel Docentes (los 14
+  // botones de las maestras). Solo accesibles via seccion "Mis docentes" del
+  // PanelDirectora (paso 17). Los handlers (paso 9 OnSubmitDispatcher + pasos
+  // 10-13) leen e.range.getSheet().getName() para enrutar segun el form origen.
+  // ============================================================================
+
+  {
+    id: 'F-baja-01',
+    phase: 'operativa',
+    title: 'Sumar una docente',
+    description: 'Agregar una docente nueva a tu plantel. La directora del Panel le va a recibir un link personal.',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Sumar-Docente',
+    sheetFolderPath: '06-Sheets-Maestros',
+    items: [
+      { type: 'SHORT_TEXT', title: 'Apellido y nombre', required: true,
+        helpText: 'Ej: Aguirre Carmen' },
+      { type: 'SHORT_TEXT', title: 'DNI',
+        helpText: 'Opcional. Lo podes completar despues si no lo tenes a mano.' },
+      { type: 'SHORT_TEXT', title: 'Email', required: true,
+        helpText: 'La cuenta Google que va a usar para responder formularios y entrar al panel.' },
+      { type: 'DROPDOWN', title: 'Tipo',
+        choices: ['Titular', 'Suplente', 'Docente JE', 'Otro'],
+        helpText: 'Opcional. Si no sabes, dejalo vacio.' }
+    ]
+  },
+
+  {
+    id: 'F-baja-02',
+    phase: 'operativa',
+    title: 'Marcar de licencia',
+    description: 'Marcar una docente como de licencia. Mantiene acceso al Drive (puede volver). NO aparece en los dropdowns de los formularios mientras esta de licencia.',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Marcar-Licencia',
+    sheetFolderPath: '06-Sheets-Maestros',
+    items: [
+      { type: 'DROPDOWN', title: 'Que docente esta de licencia?', required: true,
+        choicesFromList: 'docentes',
+        helpText: 'Solo aparecen las docentes Activa.' }
+    ]
+  },
+
+  {
+    id: 'F-baja-03',
+    phase: 'operativa',
+    title: 'Volvio de licencia',
+    description: 'Marcar una docente como Activa de nuevo. NO desactiva al suplente (decision humana de la directora).',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Volvio-Licencia',
+    sheetFolderPath: '06-Sheets-Maestros',
+    items: [
+      { type: 'DROPDOWN', title: 'Que docente volvio?', required: true,
+        choicesFromList: 'docentes',
+        helpText: 'Solo aparecen las docentes con Estado Licencia.' }
+    ]
+  },
+
+  {
+    id: 'F-baja-04',
+    phase: 'operativa',
+    title: 'Dar de baja a una docente',
+    description: 'Marcar una docente como No disponible. Pierde acceso al Drive inmediatamente. La fila NO se borra (queda como historico institucional). Operacion irreversible — usar con cuidado.',
+    folderPath: '07-Formularios',
+    sheetName: 'SHEET-Dar-De-Baja',
+    sheetFolderPath: '06-Sheets-Maestros',
+    items: [
+      { type: 'DROPDOWN', title: 'A quien das de baja?', required: true,
+        choicesFromList: 'docentes',
+        helpText: 'Activa o Licencia. La docente que selecciones pierde acceso al Drive.' },
+      { type: 'CHECKBOX', title: 'Confirmacion', required: true,
+        choices: ['Si, dar de baja. Entiendo que pierde acceso al Drive y la operacion no es reversible.'],
+        helpText: 'Marca la casilla para confirmar.' }
     ]
   }
 

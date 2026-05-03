@@ -172,28 +172,61 @@ const FormOnboardingBuilder = {
     }
 
     // Paso 2: Drive search por título canónico (recovery de huérfano).
+    // Sesión 4 2026-05-01 fix distribución: SOLO reusar si el Form está sin
+    // destino linkeado (caso recovery post-crash original) o linkeado a ESTE
+    // container (idempotencia). Si está linkeado a OTRO Sheet, pertenece a
+    // otro proyecto/copia del template — NO reusar, sino re-linkearíamos y
+    // rompiendo el otro proyecto. Bug raíz cazado en sesión 4 cuando bootstrap
+    // ejecutado en una copia del Sheet re-linkeó el F00 del sistema vivo a
+    // la copia.
     const title = ONBOARDING_FORM_CFG.title;
     const files = DriveApp.getFilesByName(title);
-    if (!files.hasNext()) return null;
+    const containerId = containerSheet.getId();
 
-    const file = files.next();
-    let form;
-    try {
-      form = FormApp.openById(file.getId());
-    } catch (err) {
-      SetupLog.warn('Archivo con título canónico en Drive pero no es Form válido', {
-        fileId: file.getId(),
-        err: String(err)
+    while (files.hasNext()) {
+      const file = files.next();
+      let form;
+      try {
+        form = FormApp.openById(file.getId());
+      } catch (err) {
+        SetupLog.warn('Archivo con título canónico en Drive pero no es Form válido', {
+          fileId: file.getId(),
+          err: String(err)
+        });
+        continue;
+      }
+
+      // Verificar destination del Form. 3 casos:
+      //   destId === null         → recovery post-crash (Form creado pero
+      //                             setDestination no corrió) → reusar.
+      //   destId === containerId  → ya linkeado acá → reusar (idempotencia).
+      //   destId === otroSheetId  → de otro proyecto → SKIP (no reusar).
+      let destId = null;
+      try {
+        destId = form.getDestinationId();
+      } catch (destErr) {
+        destId = null;
+      }
+
+      if (destId && destId !== containerId) {
+        SetupLog.info('Form con título canónico encontrado pero linkeado a otro container — skip (no reusar)', {
+          formId: form.getId(),
+          destId: destId,
+          containerId: containerId
+        });
+        continue;
+      }
+
+      SetupLog.info('Form huérfano detectado en Drive por búsqueda de título — recuperando', {
+        formId: form.getId(),
+        title: title,
+        destId: destId
       });
-      return null;
+
+      return this._recoverOrphanForm(form, containerSheet);
     }
 
-    SetupLog.info('Form huérfano detectado en Drive por búsqueda de título — recuperando', {
-      formId: form.getId(),
-      title: title
-    });
-
-    return this._recoverOrphanForm(form, containerSheet);
+    return null;
   },
 
   /**

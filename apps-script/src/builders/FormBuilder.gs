@@ -34,22 +34,35 @@ const FormBuilder = {
     const formResult = this._getOrCreateForm(cfg, formFolder);
     const form = formResult.form;
 
-    // 3. Reset items
-    this._resetItems(form);
-
-    // 4. Aplicar descripcion + items
+    // 3-4. Items + descripcion. Idempotencia D-F3c-NUEVO-12 (2026-04-28):
+    // si los items existentes ya matchean el config (orden + titulo + tipo),
+    // NO tocar — preserva las columnas del Sheet de respuestas. Forms NO
+    // reusa cols del Sheet cuando se borran y recrean items con el mismo
+    // titulo (asigna IDs internos nuevos), entonces sin esta proteccion cada
+    // setupAll re-run duplicaba las cols. SetTitle + setDescription siguen
+    // aplicandose (operaciones safe que no afectan items o cols del Sheet).
     form.setTitle(cfg.title);
     if (cfg.description) form.setDescription(cfg.description);
-    form.setCollectEmail(false);
+    // Paso 15 plan v3 (2026-04-28 sesion 2 vuelta 10): activar VERIFIED para
+    // que el form auto-capture el email del usuario logueado al enviar.
+    // Habilita paso 16 handleAuthCheck que valida email capturado contra
+    // 👥 Docentes — solo registradas operan (cazada I snapshot-011).
+    // F00 onboarding NO toca (FormOnboardingBuilder.gs sigue setCollectEmail
+    // false — la directora ya esta logueada en el template).
+    form.setCollectEmail(true);
     form.setAllowResponseEdits(false);
     form.setShowLinkToRespondAgain(true);
 
     // validacion: si es familyFacing, no permitir FILE_UPLOAD (familias pueden no tener cuenta Google)
     const itemsToApply = this._filterItemsByContext(cfg.items, cfg, ctx);
 
-    itemsToApply.forEach(function(itemCfg) {
-      FormBuilder._applyItem(form, itemCfg, ctx);
-    });
+    if (!this._existingItemsMatchConfig(form, itemsToApply)) {
+      this._resetItems(form);
+      itemsToApply.forEach(function(itemCfg) {
+        FormBuilder._applyItem(form, itemCfg, ctx);
+      });
+    }
+    // Si match: skip — preserva Sheet cols. Fix raiz D-F3c-NUEVO-12.
 
     // 5. setDestination (solo si no esta ya linkeado)
     this._ensureDestination(form, sheetResult.spreadsheet.getId());
@@ -100,6 +113,67 @@ const FormBuilder = {
     for (let i = items.length - 1; i >= 0; i--) {
       form.deleteItem(items[i]);
     }
+  },
+
+  /**
+   * _mapItemTypeToFieldType(itemType) — Apps Script ItemType → cfg FIELD_TYPES.
+   * Helper para _existingItemsMatchConfig (fix raiz D-F3c-NUEVO-12).
+   * Returns: FIELD_TYPES.X string o null si tipo desconocido.
+   */
+  _mapItemTypeToFieldType(itemType) {
+    if (itemType === FormApp.ItemType.TEXT) return FIELD_TYPES.SHORT_TEXT;
+    if (itemType === FormApp.ItemType.PARAGRAPH_TEXT) return FIELD_TYPES.PARAGRAPH;
+    if (itemType === FormApp.ItemType.MULTIPLE_CHOICE) return FIELD_TYPES.MULTIPLE_CHOICE;
+    if (itemType === FormApp.ItemType.CHECKBOX) return FIELD_TYPES.CHECKBOX;
+    if (itemType === FormApp.ItemType.LIST) return FIELD_TYPES.DROPDOWN;
+    if (itemType === FormApp.ItemType.DATE) return FIELD_TYPES.DATE;
+    if (itemType === FormApp.ItemType.DATETIME) return FIELD_TYPES.DATETIME;
+    if (itemType === FormApp.ItemType.TIME) return FIELD_TYPES.TIME;
+    if (itemType === FormApp.ItemType.SCALE) return FIELD_TYPES.SCALE;
+    if (itemType === FormApp.ItemType.SECTION_HEADER) return FIELD_TYPES.SECTION_HEADER;
+    return null;
+  },
+
+  /**
+   * _existingItemsMatchConfig(form, configItems) — fix raiz D-F3c-NUEVO-12 (2026-04-28).
+   *
+   * True si los items actuales del form coinciden 1-a-1 con configItems en
+   * orden + titulo + tipo. Si match, build() puede skipear el reset+apply y
+   * preservar las columnas del Sheet de respuestas. Si mismatch (config cambio
+   * genuinamente), build() hace reset+apply normal — el Sheet duplicara cols
+   * (deuda visual aceptada porque hay cambio real de schema).
+   *
+   * Caso seminal: 2026-04-28 paso 10 vuelta 4 plan v3. Cada setupAll re-run
+   * con la misma config duplicaba cols del Sheet de respuestas porque Forms
+   * NO reusa cols cuando se borran y recrean items con el mismo titulo
+   * (asigna IDs internos nuevos a los items recreados → Forms abre col nueva
+   * en el Sheet, deja la vieja huerfana con header). Sintoma: form F-baja-01
+   * con 4 items + Sheet con 8 cols (4 huerfanas + 4 activas), e.namedValues
+   * con arrays de 2 elementos donde el primero (la col huerfana) es vacio.
+   * Mitigacion vuelta 4.1 fue _firstNonEmpty en handleSumarDocente. Esta es
+   * la fix raiz: no recrear items si ya matchean → no duplicar cols.
+   *
+   * Conservador: FILE_UPLOAD o tipo desconocido → mismatch (fallback a
+   * reset+apply). Acepta deuda visual en esos casos raros.
+   */
+  _existingItemsMatchConfig(form, configItems) {
+    const existing = form.getItems();
+    if (existing.length !== configItems.length) return false;
+
+    for (let i = 0; i < configItems.length; i++) {
+      const cfg = configItems[i];
+      const item = existing[i];
+
+      // FILE_UPLOAD se convierte a TEXT con titulo alterado en _applyItem.
+      // Forzar mismatch para no intentar detectar el match alterado.
+      if (cfg.type === FIELD_TYPES.FILE_UPLOAD) return false;
+
+      const itemFieldType = this._mapItemTypeToFieldType(item.getType());
+      if (!itemFieldType) return false;
+      if (itemFieldType !== cfg.type) return false;
+      if (item.getTitle() !== cfg.title) return false;
+    }
+    return true;
   },
 
   _filterItemsByContext(items, cfg, ctx) {

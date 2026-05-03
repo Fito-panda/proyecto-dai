@@ -153,7 +153,20 @@
     .toast.show {
       transform: translateX(-50%) translateY(0);
       opacity: 1;
+      pointer-events: auto;  /* SPOF 96 fix — habilita tap-dismiss del toast persistente */
     }
+    /* SPOF 97 fix — error banner inline dentro de dialogs (toast bajo modal queda invisible). */
+    .eq-form-error {
+      background: #fce8e8;
+      border: 1px solid #c85a5a;
+      color: #8b2c2c;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 14px;
+      display: none;
+    }
+    .eq-form-error.show { display: block; }
     footer {
       text-align: center;
       color: #888;
@@ -161,6 +174,442 @@
       padding: 20px 0 30px;
     }
     footer a { color: #2b4a6f; }
+
+    /* ========================================================================
+       Paso 18 — sección "Mi equipo hoy" (resumen numérico arriba del detalle).
+       ======================================================================== */
+    .eq-resumen-section { margin-bottom: 28px; }
+    .eq-resumen-section h2 { margin: 0 0 12px 0; font-size: 18px; color: #2b4a6f; }
+    .eq-resumen-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .eq-resumen-card {
+      flex: 1;
+      background: #f7f9fb;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .eq-resumen-num {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2b4a6f;
+      line-height: 1.1;
+    }
+    .eq-resumen-label {
+      font-size: 13px;
+      color: #555;
+      margin-top: 4px;
+    }
+    .eq-resumen-link {
+      display: inline-block;
+      color: #2b4a6f;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 0;
+    }
+    .eq-resumen-link:hover { text-decoration: underline; }
+    @media (max-width: 480px) {
+      .eq-resumen-row { flex-direction: column; gap: 8px; }
+    }
+
+    /* ========================================================================
+       Paso 21 (sesión 4 2026-05-01) — sección "Mis respuestas por formulario".
+       Refactor de lista plana → 4 grupos colapsibles con carpetas Drive.
+       Prefix .mr- para evitar colisión con .eq-* del paso 17/18.
+       ======================================================================== */
+    .mr-section { margin-bottom: 28px; }
+    .mr-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+    .mr-section-header h2 { margin: 0; font-size: 18px; color: #2b4a6f; }
+    .mr-global-btn {
+      background: white;
+      color: #2b4a6f;
+      border: 1.5px solid #c5cedc;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .mr-global-btn:hover { background: #f7f9fb; border-color: #2b4a6f; }
+    .mr-group {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .mr-group-summary {
+      padding: 12px 14px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      color: #2b4a6f;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mr-group-summary::-webkit-details-marker { display: none; }
+    .mr-group-summary::before {
+      content: '▶';
+      font-size: 11px;
+      color: #888;
+      transition: transform 0.15s;
+    }
+    .mr-group[open] > .mr-group-summary::before { transform: rotate(90deg); }
+    .mr-group-count {
+      color: #888;
+      font-weight: 400;
+      font-size: 14px;
+      margin-left: auto;
+    }
+    .mr-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-top: 1px solid #f0f3f7;
+    }
+    .mr-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      text-decoration: none;
+      color: #1a1a1a;
+      border-bottom: 1px solid #f0f3f7;
+    }
+    .mr-list > li:last-child .mr-item { border-bottom: none; }
+    .mr-item:hover { background: #f7f9fb; }
+    .mr-item-arrow { color: #888; font-size: 18px; }
+    .mr-empty { padding: 12px 14px; color: #888; font-size: 14px; font-style: italic; }
+    @media (max-width: 480px) {
+      .mr-section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .mr-global-btn { width: 100%; text-align: center; box-sizing: border-box; }
+    }
+
+    /* ========================================================================
+       Paso 17.2 — sección Equipo Docente.
+       Prefix .eq- para evitar colisión con selectores existentes (SPOF 48).
+       ======================================================================== */
+    .eq-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .eq-section-header h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+    }
+    .eq-sumar-btn {
+      width: auto;
+      margin: 0;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      min-height: 38px;
+      white-space: nowrap;
+    }
+
+    .eq-group {
+      margin: 10px 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .eq-group-summary {
+      cursor: pointer;
+      padding: 10px 12px;
+      background: #f0f3f7;
+      font-size: 14px;
+      font-weight: 600;
+      color: #2b4a6f;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px;
+      user-select: none;
+      min-height: 44px;
+    }
+    .eq-group-summary::-webkit-details-marker { display: none; }
+    .eq-group-summary::before {
+      content: '▸';
+      display: inline-block;
+      transition: transform 0.15s ease;
+      color: #999;
+      font-size: 12px;
+    }
+    .eq-group[open] > .eq-group-summary::before {
+      transform: rotate(90deg);
+    }
+    .eq-group[open] > .eq-group-summary {
+      border-radius: 8px 8px 0 0;
+    }
+
+    .eq-card-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      background: white;
+      border-radius: 0 0 8px 8px;
+    }
+    .eq-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      min-height: 56px;
+      transition: background 0.08s ease;
+    }
+    .eq-card:last-child { border-bottom: none; border-radius: 0 0 8px 8px; }
+    .eq-card:hover { background: #f7f9fb; }
+    .eq-card:active { background: #eef3f9; }
+    .eq-card.eq-card-loading {
+      opacity: 0.55;
+      pointer-events: none;
+      cursor: wait;
+    }
+    .eq-card-empty {
+      padding: 14px 12px;
+      color: #999;
+      font-size: 14px;
+      font-style: italic;
+      text-align: center;
+    }
+
+    .eq-avatar {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .eq-avatar-0 { background: #2b4a6f; }
+    .eq-avatar-1 { background: #2e8b57; }
+    .eq-avatar-2 { background: #c85a5a; }
+    .eq-avatar-3 { background: #d97706; }
+    .eq-avatar-4 { background: #7c3aed; }
+    .eq-avatar-5 { background: #0891b2; }
+    .eq-avatar-6 { background: #84cc16; }
+    .eq-avatar-7 { background: #db2777; }
+
+    .eq-card-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .eq-card-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #1a1a1a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .eq-card-meta {
+      font-size: 13px;
+      color: #777;
+      margin-top: 2px;
+    }
+    .eq-card-status-pending {
+      font-size: 13px;
+      font-weight: 500;
+      color: #d97706;
+      margin-top: 2px;
+    }
+
+    /* ========================================================================
+       Paso 17.2 — dialogs (bottom sheets) base.
+       Comportamiento detalle de animación + interacción es de 17.3 JS.
+       Acá solo estructura visual para que <dialog> renderee bien.
+       ======================================================================== */
+    .eq-dialog {
+      margin: 0 auto auto auto;
+      bottom: 0;
+      top: auto;
+      width: 100%;
+      max-width: 640px;
+      max-height: 70dvh;
+      border: none;
+      padding: 0;
+      border-radius: 16px 16px 0 0;
+      background: white;
+      overflow-y: auto;
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+    }
+    .eq-dialog::backdrop {
+      background: rgba(0,0,0,0.5);
+    }
+    body:has(dialog.eq-dialog[open]) { overflow: hidden; }
+
+    .eq-dialog-header {
+      position: sticky;
+      top: 0;
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      z-index: 1;
+    }
+    .eq-dialog-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .eq-dialog-close {
+      background: none;
+      border: none;
+      font-size: 26px;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      line-height: 1;
+      color: #666;
+      padding: 0;
+      border-radius: 50%;
+    }
+    .eq-dialog-close:hover { background: #f0f0f0; }
+    .eq-dialog-body {
+      padding: 16px;
+    }
+    .eq-dialog-body p { margin: 0 0 10px; }
+    .eq-dialog-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+    }
+    .eq-action-btn {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1.5px solid transparent;
+      background: white;
+      font-size: 16px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      min-height: 56px;
+    }
+    .eq-action-btn .eq-action-title {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .eq-action-btn .eq-action-hint {
+      display: block;
+      font-size: 13px;
+      color: #777;
+      font-weight: 400;
+    }
+    .eq-action-btn.eq-action-licencia {
+      border-color: #2b4a6f;
+      color: #2b4a6f;
+    }
+    .eq-action-btn.eq-action-licencia:hover { background: #eef3f9; }
+    .eq-action-btn.eq-action-volvio {
+      border-color: #2e8b57;
+      color: #2e8b57;
+    }
+    .eq-action-btn.eq-action-volvio:hover { background: #e8f4ec; }
+    .eq-action-btn.eq-action-baja {
+      border-color: #c85a5a;
+      color: #c85a5a;
+    }
+    .eq-action-btn.eq-action-baja:hover { background: #faecec; }
+    .eq-action-btn.eq-action-cancel {
+      border-color: #ccc;
+      color: #555;
+    }
+
+    /* Toast variantes — extiende el .toast existente con clases color */
+    .toast.toast-success { background: #2e8b57; }
+    .toast.toast-warn    { background: #d97706; }
+    .toast.toast-error   { background: #c85a5a; }
+
+    /* Sesión 5 chunk G UX v2 — sección "Recordatorios sugeridos".
+       Cada .recordatorio-item es: label + botón "Agregar a Calendar". */
+    .recordatorio-item {
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #f8f8f8;
+      border-left: 3px solid #2b4a6f;
+      border-radius: 4px;
+    }
+    .recordatorio-label {
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    .recordatorio-item .btn {
+      width: 100%;
+      margin: 0;
+    }
+    .recordatorios-hint {
+      font-size: 12px;
+      color: #666;
+      margin: 12px 0 0;
+      line-height: 1.5;
+    }
+
+    /* Sesión 5 chunk G — vista imprimible del QR para sala docentes.
+       Activado por body.printing-qr al tocar botón "🖨 Imprimir QR".
+       Oculta TODO el panel excepto el QR grande + texto instructivo. */
+    .qr-print-only {
+      display: none;
+    }
+    @media print {
+      body.printing-qr * { visibility: hidden; }
+      body.printing-qr .qr-print-only,
+      body.printing-qr .qr-print-only * { visibility: visible; }
+      body.printing-qr .qr-print-only {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        padding: 40px 20px;
+      }
+      body.printing-qr .qr-print-only img {
+        width: 400px;
+        height: 400px;
+        margin: 20px auto;
+      }
+      body.printing-qr .qr-print-only h1 {
+        font-size: 32px;
+        margin: 0 0 8px;
+      }
+      body.printing-qr .qr-print-only p {
+        font-size: 18px;
+        margin: 8px 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -168,9 +617,127 @@
 
   <header>
     <div class="role">Panel Directora</div>
-    <h1><?= ctx.directorName || ctx.schoolName ?></h1>
+    <h1><?= ctx.greetingName || ctx.directorName || ctx.schoolName ?></h1>
     <div class="meta"><?= ctx.schoolName ?><? if (ctx.location) { ?> · <?= ctx.location ?><? } ?><? if (ctx.year) { ?> · <?= ctx.year ?><? } ?></div>
   </header>
+
+  <section class="eq-resumen-section">
+    <h2>👥 Mi equipo hoy</h2>
+    <div class="eq-resumen-row">
+      <div class="eq-resumen-card">
+        <div class="eq-resumen-num"><?= ctx.equipo && ctx.equipo.activas ? ctx.equipo.activas.length : 0 ?></div>
+        <div class="eq-resumen-label">Activas</div>
+      </div>
+      <div class="eq-resumen-card">
+        <div class="eq-resumen-num"><?= ctx.equipo && ctx.equipo.licencia ? ctx.equipo.licencia.length : 0 ?></div>
+        <div class="eq-resumen-label">De licencia</div>
+      </div>
+      <div class="eq-resumen-card">
+        <div class="eq-resumen-num"><?= ctx.equipo && ctx.equipo.bajas ? ctx.equipo.bajas.length : 0 ?></div>
+        <div class="eq-resumen-label">Dadas de baja</div>
+      </div>
+    </div>
+    <a href="#equipoDocente" class="eq-resumen-link" id="btnVerDetalle">Ver detalle ↓</a>
+  </section>
+
+  <section id="equipoDocente">
+    <div class="eq-section-header">
+      <h2>👥 Equipo Docente</h2>
+      <button type="button" class="btn secondary eq-sumar-btn" id="btnSumar">+ Sumar nueva docente</button>
+    </div>
+
+    <!-- Sesión 5 chunk G UX refactor — botón post-Sumar: distribuir link admin
+         a la docente recién agregada. Flow natural: sumás → compartís link. -->
+    <button class="btn primary" onclick="compartirLinkAdmin()" style="margin:8px 0 4px;width:100%;">📱 Compartir link admin con docente nueva</button>
+    <p class="hint" style="margin:0 0 16px;">Pre-arma mensaje WhatsApp con el link del panel admin para mandar a la docente que recién sumaste.</p>
+
+    <details class="eq-group">
+      <summary class="eq-group-summary">
+        Activas (<?= ctx.equipo.activas.length ?>)
+      </summary>
+      <ul class="eq-card-list">
+      <? if (ctx.equipo.activas.length === 0) { ?>
+        <li class="eq-card-empty">Todavía no tenés docentes activas.</li>
+      <? } ?>
+      <? ctx.equipo.activas.forEach(function(d) { ?>
+        <li class="eq-card" data-email="<?= d.email ?>" data-estado="Activa">
+          <span class="eq-avatar eq-avatar-<?= _avatarColorClass(d) ?>"><?= _initial(d) ?></span>
+          <div class="eq-card-body">
+            <div class="eq-card-name"><?= _displayName(d) ?></div>
+            <div class="eq-card-meta"><?= d.tipo || '—' ?></div>
+          </div>
+        </li>
+      <? }); ?>
+      </ul>
+    </details>
+
+    <details class="eq-group">
+      <summary class="eq-group-summary">
+        De licencia (<?= ctx.equipo.licencia.length ?>)
+      </summary>
+      <ul class="eq-card-list">
+      <? if (ctx.equipo.licencia.length === 0) { ?>
+        <li class="eq-card-empty">Nadie de licencia ahora.</li>
+      <? } ?>
+      <? ctx.equipo.licencia.forEach(function(d) { ?>
+        <li class="eq-card" data-email="<?= d.email ?>" data-estado="Licencia">
+          <span class="eq-avatar eq-avatar-<?= _avatarColorClass(d) ?>"><?= _initial(d) ?></span>
+          <div class="eq-card-body">
+            <div class="eq-card-name"><?= _displayName(d) ?></div>
+            <div class="eq-card-meta"><?= d.tipo || '—' ?></div>
+          </div>
+        </li>
+      <? }); ?>
+      </ul>
+    </details>
+
+    <details class="eq-group">
+      <summary class="eq-group-summary">
+        Dadas de baja (<?= ctx.equipo.bajas.length ?>)
+      </summary>
+      <ul class="eq-card-list">
+      <? if (ctx.equipo.bajas.length === 0) { ?>
+        <li class="eq-card-empty">Sin bajas registradas.</li>
+      <? } ?>
+      <? ctx.equipo.bajas.forEach(function(d) { ?>
+        <li class="eq-card" data-email="<?= d.email ?>" data-estado="No disponible">
+          <span class="eq-avatar eq-avatar-<?= _avatarColorClass(d) ?>"><?= _initial(d) ?></span>
+          <div class="eq-card-body">
+            <div class="eq-card-name"><?= _displayName(d) ?></div>
+            <div class="eq-card-meta"><?= d.tipo || '—' ?></div>
+          </div>
+        </li>
+      <? }); ?>
+      </ul>
+    </details>
+  </section>
+
+  <section class="mr-section">
+    <div class="mr-section-header">
+      <h2>📂 Mis respuestas por formulario</h2>
+      <a class="mr-global-btn" href="<?= ctx.yearFolderUrl || '#' ?>" target="_blank" rel="noopener noreferrer">📁 Ir a las carpetas →</a>
+    </div>
+    <? ctx.phaseOrder.forEach(function(phase) { ?>
+      <? var items = (ctx.folderLinksByPhase && ctx.folderLinksByPhase[phase]) || []; ?>
+      <? if (items.length === 0) return; ?>
+      <details class="mr-group">
+        <summary class="mr-group-summary">
+          <span><?= ctx.phaseLabels[phase].icon ?> <?= ctx.phaseLabels[phase].label ?></span>
+          <span class="mr-group-count">(<?= items.length ?> formulario<?= items.length === 1 ? '' : 's' ?>)</span>
+        </summary>
+        <ul class="mr-list">
+        <? items.forEach(function(item) { ?>
+          <? if (item.url && item.url !== '#') { ?>
+            <li><a class="mr-item" href="<?= item.url ?>" target="_blank" rel="noopener noreferrer"><span><?= item.title ?></span><span class="mr-item-arrow">→</span></a></li>
+          <? } else { ?>
+            <li class="mr-empty"><?= item.title ?> (no disponible)</li>
+          <? } ?>
+        <? }); ?>
+        </ul>
+      </details>
+    <? }); ?>
+    <p class="hint">Cada link abre la carpeta de Drive con los documentos cargados.</p>
+  </section>
 
   <section>
     <h2>📋 Estado de tu configuración</h2>
@@ -190,7 +757,7 @@
   </section>
 
   <section>
-    <h2>📱 Link para compartir con las maestras</h2>
+    <h2>📱 Panel para todas las docentes</h2>
     <? if (ctx.panelDocentesQrUrl) { ?>
       <div class="qr-box">
         <img class="qr-img" src="<?= ctx.panelDocentesQrUrl ?>" width="200" height="200" alt="QR Panel Docentes">
@@ -205,20 +772,38 @@
     <button class="btn success" onclick="copyLink()">📋 Copiar link para WhatsApp</button>
     <a class="btn secondary" href="<?= ctx.panelDocentesUrl ?>" target="_blank">Abrir panel de prueba</a>
     <span class="url" style="display:block;font-family:monospace;font-size:11px;color:#888;word-break:break-all;margin-top:8px;"><?= ctx.panelDocentesUrl || '(URL disponible tras publicar el Panel)' ?></span>
+
+    <!-- Sesión 5 chunk G UX refactor — solo Imprimir QR queda acá (panel docentes
+         público, mismo concepto que el QR + Copiar link). El botón Compartir admin
+         se movió a la sección Equipo Docente al lado de "+ Sumar nueva docente". -->
+    <button class="btn secondary" onclick="imprimirQR()" style="margin-top:12px;">🖨 Imprimir QR para sala docentes</button>
+    <p class="hint" style="margin:6px 0 0;">Genera vista imprimible con el QR grande del panel docentes para pegar en la sala.</p>
   </section>
 
+  <!-- Sesión 5 chunk G UX v2 — sección "Recordatorios sugeridos".
+       Usa URLs públicas de Google Calendar (calendar.google.com/calendar/r/eventedit?...)
+       que abren el evento PRE-ARMADO con título + recurrencia configurada.
+       1 click por evento → Calendar abierto → "Guardar". Cero scope OAuth nuevo. -->
   <section>
-    <h2>📂 Mis respuestas por formulario</h2>
-    <ul class="sheet-list">
-    <? ctx.sheetLinks.forEach(function(s) { ?>
-      <? if (s.exists) { ?>
-        <li><a class="sheet-link" href="<?= s.url ?>" target="_blank"><span><?= s.title ?></span><span class="arrow">→</span></a></li>
-      <? } else { ?>
-        <li><span class="sheet-link missing"><span><?= s.title ?> <em>(aún no generado)</em></span><span class="arrow">—</span></span></li>
-      <? } ?>
-    <? }); ?>
-    </ul>
-    <p class="hint">Cada link abre el Sheet con todas las respuestas recibidas de ese formulario.</p>
+    <h2>📅 Recordatorios sugeridos</h2>
+    <p class="hint">Tocá un botón y se abre Google Calendar con el evento ya armado — solo le das "Guardar". El sistema NO manda recordatorios — los recordatorios viven en tu Calendar personal.</p>
+
+    <div class="recordatorio-item">
+      <div class="recordatorio-label">📆 Día 25 de cada mes — pre-carga SGE (Ministerio Córdoba)</div>
+      <a class="btn secondary" href="https://calendar.google.com/calendar/r/eventedit?text=Pre-carga+SGE+(Ministerio+C%C3%B3rdoba)&details=Recordatorio+del+sistema+DAI%3A+revisar+y+enviar+pre-carga+SGE&recur=RRULE:FREQ%3DMONTHLY%3BBYMONTHDAY%3D25" target="_blank" rel="noopener">+ Agregar a mi Google Calendar</a>
+    </div>
+
+    <div class="recordatorio-item">
+      <div class="recordatorio-label">📆 Diciembre — armá legajos con anticipación al cierre de año</div>
+      <a class="btn secondary" href="https://calendar.google.com/calendar/r/eventedit?text=Armar+legajos+(cierre+de+a%C3%B1o)&details=Recordatorio+del+sistema+DAI%3A+armar+legajos+con+anticipaci%C3%B3n+al+cierre+de+a%C3%B1o&recur=RRULE:FREQ%3DYEARLY%3BBYMONTH%3D12%3BBYMONTHDAY%3D1" target="_blank" rel="noopener">+ Agregar a mi Google Calendar</a>
+    </div>
+
+    <div class="recordatorio-item">
+      <div class="recordatorio-label">📆 Viernes 17h — armá planificación de la próxima semana</div>
+      <a class="btn secondary" href="https://calendar.google.com/calendar/r/eventedit?text=Planificaci%C3%B3n+pr%C3%B3xima+semana&details=Recordatorio+del+sistema+DAI%3A+armar+planificaci%C3%B3n+de+la+pr%C3%B3xima+semana&recur=RRULE:FREQ%3DWEEKLY%3BBYDAY%3DFR" target="_blank" rel="noopener">+ Agregar a mi Google Calendar</a>
+    </div>
+
+    <p class="recordatorios-hint">Cada botón abre Calendar con el evento pre-armado. Si querés cambiar la fecha o recurrencia, podés editar antes de guardar. ¿Querés más recordatorios? Andá a tu Google Calendar y armálos vos misma según tu ritmo.</p>
   </section>
 
   <section>
@@ -231,13 +816,40 @@
     </a>
   </section>
 
+  <!-- Sesión 5 chunk G — placeholder oculto para vista imprimible del QR.
+       Solo visible cuando body tiene clase .printing-qr (activada por
+       imprimirQR() + window.print()). CSS @media print hace el rest. -->
+  <div class="qr-print-only">
+    <h1><?= ctx.schoolName || 'Escuela' ?></h1>
+    <p>Panel docentes — escaneá con tu celular</p>
+    <? if (ctx.panelDocentesQrUrl) { ?>
+      <img src="<?= ctx.panelDocentesQrUrl ?>" alt="QR Panel Docentes">
+    <? } ?>
+    <p><?= ctx.panelDocentesUrl || '' ?></p>
+  </div>
+
   <footer>
     Sistema DAI · <a href="https://proyectodai.com" target="_blank">proyectodai.com</a>
   </footer>
 
+  <!-- Paso 17.2 — bottom sheets (dialogs HTML5 nativos). Vacíos por default;
+       JS de 17.3 inyecta contenido + abre con .showModal() según interacción. -->
+  <dialog class="eq-dialog" id="detailSheet" aria-labelledby="detailSheetTitle"></dialog>
+  <dialog class="eq-dialog" id="actionsSheet" aria-labelledby="actionsSheetTitle"></dialog>
+  <dialog class="eq-dialog" id="confirmSheet" aria-labelledby="confirmSheetTitle"></dialog>
+
   <div id="toast" class="toast"></div>
 
 </div>
+
+<!-- Paso 17.2 — datos del equipo + deploy version inyectados server-side.
+     El JS de 17.3 los va a leer desde window.__docentes y window.__deployVersion.
+     SPOF 26+39: JSON.stringify con replace `</script>` para evitar break-out
+     si algún apellido tiene caracteres HTML especiales (cazada del agente). -->
+<script>
+  window.__docentes = <?!= JSON.stringify(ctx.equipo).replace(/<\/script>/g, '<\\/script>') ?>;
+  window.__deployVersion = <?!= JSON.stringify(ctx.deployVersion).replace(/<\/script>/g, '<\\/script>') ?>;
+</script>
 
 <script>
   function showToast(message) {
@@ -273,6 +885,1254 @@
       showToast('Esta acción se conecta en una próxima iteración.');
     }
   }
+
+  // ==========================================================================
+  // Sesión 5 chunk G — funciones modelo C: 3 botones nuevos del panel.
+  // ==========================================================================
+
+  /**
+   * compartirLinkAdmin — botón "📱 Compartir link admin con docente nueva".
+   * Pre-arma mensaje WhatsApp con el link admin (?role=admin) para sumar
+   * a una docente recién cargada al panel admin (sumarla con el botón
+   * "+ Sumar nueva docente" PRIMERO — este botón solo distribuye el link).
+   *
+   * UX: navigator.share() si está disponible (mobile-first). Fallback a
+   * clipboard. Último fallback a window.prompt para casos edge.
+   */
+  function compartirLinkAdmin() {
+    var teacherUrl = <?= JSON.stringify(ctx.panelDocentesUrl || '') ?>;
+    if (!teacherUrl) {
+      showToast('Todavía no publicaste tu Panel. Ver /ayuda Paso 0.');
+      return;
+    }
+    var adminUrl = teacherUrl + '?role=admin';
+    var mensaje = 'Te sumamos al panel administrador de la escuela. Entrá con tu mail registrado:\n\n' + adminUrl + '\n\nTip: guardá el link en favoritos del celular.';
+
+    if (navigator.share) {
+      navigator.share({
+        title: 'Panel administrador DAI',
+        text: mensaje
+      }).then(
+        function() { showToast('✓ Compartido'); },
+        function() { /* user cancel — no-op */ }
+      );
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(mensaje).then(
+        function() { showToast('✓ Mensaje copiado. Pegalo en WhatsApp.'); },
+        function() { window.prompt('Copiá este mensaje:', mensaje); }
+      );
+    } else {
+      window.prompt('Copiá este mensaje:', mensaje);
+    }
+  }
+
+  /**
+   * imprimirQR — botón "🖨 Imprimir QR para sala docentes".
+   * Activa media print que oculta todo el panel excepto el QR grande +
+   * texto instructivo. La directora imprime y pega en sala de docentes.
+   */
+  function imprimirQR() {
+    var qrUrl = <?= JSON.stringify(ctx.panelDocentesQrUrl || '') ?>;
+    if (!qrUrl) {
+      showToast('El QR se genera al publicar el Panel. Ver /ayuda Paso 0.');
+      return;
+    }
+    document.body.classList.add('printing-qr');
+    // setTimeout para que el browser aplique la clase antes del print dialog.
+    setTimeout(function() {
+      window.print();
+      // Cleanup: remover la clase post-print (cualquier resultado del dialog).
+      setTimeout(function() {
+        document.body.classList.remove('printing-qr');
+      }, 500);
+    }, 50);
+  }
+
+  // Sesión 5 chunk G UX v2: eliminada función copiarRecordatorios() — la
+  // sección Recordatorios usa ahora links directos a Google Calendar
+  // (calendar.google.com/calendar/r/eventedit?...) en lugar de copy-paste
+  // manual. Cada link abre Calendar con el evento PRE-ARMADO + recurrencia.
+</script>
+
+<!-- ==========================================================================
+     Paso 17.3 plan v3 baja/suplentes-docente (2026-04-30) — JS de interacción.
+     Validación 5-lentes pre-código aplicada (mapeo del plomero + abogado del
+     diablo + cuadro semiótico temporal + mapa de empatía + auditor técnico).
+     Ver docs/design/paso-17-3-preview-consolidado.md para SPOFs cubiertos
+     (94 totales, 75 fixeados/mitigados, 19 aceptados con razón).
+
+     SPOF 89 BLOQUEANTE: cero innerHTML con datos del backend.
+     Solo textContent + createElement en TODA la población de dialogs.
+     ========================================================================== -->
+<script>
+(function() {
+  'use strict';
+
+  // ============================================================
+  // 0. Defensive checks on load (SPOF 63, 82).
+  // ============================================================
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    showToast('Panel necesita conexión a Google Apps Script. Recargá la página.');
+    return;
+  }
+  // Shape guard de window.__docentes (SPOF 82).
+  if (!window.__docentes || typeof window.__docentes !== 'object') {
+    window.__docentes = { activas: [], licencia: [], bajas: [] };
+  }
+  ['activas', 'licencia', 'bajas'].forEach(function(k) {
+    if (!Array.isArray(window.__docentes[k])) window.__docentes[k] = [];
+  });
+
+  // Normalizar emails de window.__docentes a lowercase (SPOF 83 single source).
+  ['activas', 'licencia', 'bajas'].forEach(function(seccion) {
+    window.__docentes[seccion].forEach(function(d) {
+      d.email = String(d.email || '').toLowerCase().trim();
+    });
+  });
+
+  // ============================================================
+  // 1. Helpers básicos.
+  // ============================================================
+  function _normalizeEmail(s) { return String(s || '').toLowerCase().trim(); }
+  function _normalizeNombre(s) { return String(s || '').normalize('NFC').trim(); }
+
+  function _setText(el, txt) {
+    if (el) el.textContent = String(txt == null ? '' : txt);
+  }
+
+  function _displayName(d) {
+    var ap = (d && d.apellido) || '';
+    var no = (d && d.nombre) || '';
+    if (ap && no) return ap + ', ' + no;
+    if (ap) return ap;
+    if (no) return no;
+    var em = (d && d.email) || '';
+    return em.split('@')[0] || '(sin nombre)';
+  }
+
+  function _findDocenteInWindow(email) {
+    var target = _normalizeEmail(email);
+    if (!target) return null;
+    var sec = ['activas', 'licencia', 'bajas'];
+    for (var s = 0; s < sec.length; s++) {
+      var arr = window.__docentes[sec[s]];
+      for (var i = 0; i < arr.length; i++) {
+        if (_normalizeEmail(arr[i].email) === target) return arr[i];
+      }
+    }
+    return null;
+  }
+
+  function _updateWindowDocentes(docenteNuevo) {
+    // Quita la docente de su sección actual y la mete en la sección del estado nuevo.
+    var email = _normalizeEmail(docenteNuevo.email);
+    docenteNuevo.email = email;
+    var sec = ['activas', 'licencia', 'bajas'];
+    for (var s = 0; s < sec.length; s++) {
+      var arr = window.__docentes[sec[s]];
+      for (var i = 0; i < arr.length; i++) {
+        if (_normalizeEmail(arr[i].email) === email) {
+          arr.splice(i, 1);
+          break;
+        }
+      }
+    }
+    var bucket = docenteNuevo.estado === 'Activa' ? 'activas'
+               : docenteNuevo.estado === 'Licencia' ? 'licencia'
+               : 'bajas';
+    window.__docentes[bucket].push(docenteNuevo);
+  }
+
+  function _findCardEl(email) {
+    var target = _normalizeEmail(email);
+    var cards = document.querySelectorAll('.eq-card');
+    for (var i = 0; i < cards.length; i++) {
+      if (_normalizeEmail(cards[i].getAttribute('data-email') || '') === target) {
+        return cards[i];
+      }
+    }
+    return null;
+  }
+
+  function _avatarColorIdx(d) {
+    var s = (d && (d.apellido || d.nombre || d.email)) || 'X';
+    var ch = s.charCodeAt(0) || 0;
+    return ch % 8;
+  }
+
+  function _initial(d) {
+    var s = (d && (d.apellido || d.nombre)) || ((d && d.email) || '').split('@')[0] || '?';
+    return (s.charAt(0) || '?').toUpperCase();
+  }
+
+  // ============================================================
+  // 2. Observability client-side (SPOF 92, anillo log 50 eventos).
+  // ============================================================
+  var _clientLog = [];
+  function _logEvent(ev, detail) {
+    _clientLog.push({ t: Date.now(), ev: ev, detail: detail || null });
+    if (_clientLog.length > 50) _clientLog.shift();
+  }
+
+  // ============================================================
+  // 3. Toast con variantes + aria-live + persistente.
+  // ============================================================
+  var toastEl = document.getElementById('toast');
+  if (toastEl) {
+    toastEl.setAttribute('role', 'status');
+    toastEl.setAttribute('aria-live', 'polite');
+  }
+  var _toastTimer = null;
+  var _toastDismissHandler = null;
+  var _toastShownAt = null;
+  var _toastDurationMs = null;
+
+  // Cleanup centralizado del toast — fixea AD-1/AD-2/AD-3 (listener huérfano + race tap-vs-timer).
+  function _dismissToast() {
+    if (!toastEl) return;
+    if (_toastTimer) {
+      clearTimeout(_toastTimer);
+      _toastTimer = null;
+    }
+    if (_toastDismissHandler) {
+      toastEl.removeEventListener('click', _toastDismissHandler);
+      _toastDismissHandler = null;
+    }
+    toastEl.classList.remove('show');
+    toastEl.style.cursor = '';
+    _toastShownAt = null;
+    _toastDurationMs = null;
+  }
+
+  // SPOF 97 fix — helpers para error inline dentro de dialogs.
+  // El toast queda enterrado bajo el top-layer de <dialog>.showModal(), así que
+  // cuando hay dialog abierto y queremos mostrar error, lo ponemos inline.
+  function _showFormError(divId, msg) {
+    var div = document.getElementById(divId);
+    if (div) {
+      div.textContent = String(msg || '');
+      div.classList.add('show');
+      return true;
+    }
+    return false;
+  }
+  function _clearFormError(divId) {
+    var div = document.getElementById(divId);
+    if (div) {
+      div.textContent = '';
+      div.classList.remove('show');
+    }
+  }
+
+  function eqToast(msg, variant, opts) {
+    if (!toastEl) return;
+    opts = opts || {};
+    // Cleanup del toast anterior antes de mostrar el nuevo (AD-1/AD-3).
+    _dismissToast();
+    toastEl.textContent = String(msg || '');
+    toastEl.className = 'toast show';
+    if (variant === 'success') toastEl.classList.add('toast-success');
+    else if (variant === 'warn') toastEl.classList.add('toast-warn');
+    else if (variant === 'error') toastEl.classList.add('toast-error');
+
+    // Tiempo diferenciado: success 3s (con evidencia visual paralela), warn/error 6s (info crítica).
+    var ms = opts.duration || (variant === 'success' ? 3000 : 6000);
+
+    if (opts.persistent) {
+      // Persistent: tap-dismiss + auto-dismiss tras `ms` (AD-4 fix).
+      toastEl.style.cursor = 'pointer';
+      _toastDismissHandler = function() { _dismissToast(); };
+      toastEl.addEventListener('click', _toastDismissHandler);
+    }
+    _toastShownAt = Date.now();
+    _toastDurationMs = ms;
+    _toastTimer = setTimeout(function() { _dismissToast(); }, ms);
+  }
+
+  // ============================================================
+  // 4. Mapeo errores técnicos a microcopy criollo (SPOF 27).
+  // ============================================================
+  function _errorMessageCriollo(reason, errStr) {
+    if (reason === 'busy') return 'Esperá un momento, terminando lo anterior.';
+    if (reason === 'busy-twice') return 'El sistema está ocupado, esperá medio minuto y volvé a intentar.';
+    if (reason === 'docente-not-found') return 'No encuentro a esa docente. Recargá la página.';
+    if (reason === 'docente-not-found-post-update') return 'La docente desapareció después de guardar. Recargá la página.';
+    if (reason === 'no-template' || reason === 'no-tab') return 'Algo se descajetó adentro. Avisale a quien te instaló el sistema.';
+    if (reason === 'invalid-accion') return 'Acción no reconocida. Recargá la página.';
+    if (reason === 'email-vacio') return 'Falta el email.';
+    if (reason === 'email-invalido') return 'El email no parece válido.';
+    if (reason === 'email-duplicado') return 'Esta docente ya está cargada en el sistema.';
+    if (reason === 'apellido-vacio') return 'Falta el apellido.';
+    if (reason === 'apellido-con-coma') return 'El apellido no puede tener comas.';
+    if (reason === 'dni-duplicado') return 'Ya hay una docente cargada con ese DNI.';
+    if (reason === 'handler-error') return 'Hubo un problema al guardar. Probá de nuevo en unos segundos.';
+    if (reason === 'timeout') return 'No pudimos conectar. Probá de nuevo cuando tengas señal.';
+    if (reason === 'timeout-uncertain') return 'No estamos seguros si se guardó. Recargá la página cuando vuelva la señal.';
+    if (errStr && /template/i.test(errStr)) return 'Algo se descajetó adentro. Avisale a quien te instaló el sistema.';
+    return 'Algo no salió. Probá de nuevo.';
+  }
+
+  // ============================================================
+  // 5. Microcopy escalonado durante in-flight (recomendación universal).
+  // ============================================================
+  var _progressTimers = [];
+  function _startProgressMessages(buttonEl, baseMsg) {
+    _stopProgressMessages();
+    if (!buttonEl) return;
+    var orig = buttonEl.textContent;
+    buttonEl.setAttribute('data-orig-text', orig);
+    buttonEl.textContent = baseMsg || 'Enviando…';
+    _progressTimers.push(setTimeout(function() {
+      buttonEl.textContent = 'Casi, guardando…';
+    }, 6000));
+    _progressTimers.push(setTimeout(function() {
+      buttonEl.textContent = 'Tarda más de lo normal, no toques nada';
+    }, 13000));
+    _progressTimers.push(setTimeout(function() {
+      buttonEl.textContent = 'Conectividad lenta, esperá';
+    }, 25000));
+  }
+
+  function _stopProgressMessages() {
+    for (var i = 0; i < _progressTimers.length; i++) clearTimeout(_progressTimers[i]);
+    _progressTimers = [];
+  }
+
+  // ============================================================
+  // 6. callBackend wrapper.
+  // INVARIANTE: SIEMPRE resuelve con {ok, ...}, NUNCA rejecta.
+  // SPOFs cubiertos: 1, 12, 13, 14, 19, 27, 32, 70, 72, 79, 81, 86, 87, 88.
+  // ============================================================
+  var _nextReqId = 0;
+  var _resolved = {};
+  var _mutateInFlight = false;
+  var _mutateStartedAt = 0;
+  var _mutateHiddenAt = 0;
+  var _watchdogTimer = null;
+
+  function _resetMutateFlag() {
+    _mutateInFlight = false;
+    _mutateStartedAt = 0;
+    _mutateHiddenAt = 0;
+    if (_watchdogTimer) { clearTimeout(_watchdogTimer); _watchdogTimer = null; }
+  }
+
+  function callBackend(fnName, args, opts) {
+    opts = opts || {};
+    var reqId = ++_nextReqId;
+    var isMutation = !!opts.isMutation;
+    var button = opts.button || null;
+    var onResult = opts.onResult || function() {};
+
+    // Lock global para mutaciones (SPOF 11, 71).
+    if (isMutation && _mutateInFlight) {
+      _logEvent('callBackend.busy-skipped', { fnName: fnName, reqId: reqId });
+      eqToast(_errorMessageCriollo('busy'), 'warn');
+      onResult({ ok: false, reason: 'busy-local' });
+      return;
+    }
+
+    if (isMutation) {
+      _mutateInFlight = true;
+      _mutateStartedAt = performance.now();
+      // Watchdog 90s defensive (SPOF 81).
+      _watchdogTimer = setTimeout(function() {
+        if (_mutateInFlight && _resolved[reqId] !== true) {
+          if (window.console && console.error) {
+            console.error('[callBackend] watchdog 90s — reset forzado del flag mutateInFlight');
+          }
+          _resolved[reqId] = true;
+          _resetMutateFlag();
+          _stopProgressMessages();
+          if (button) {
+            button.disabled = false;
+            button.classList.remove('loading');
+            var orig = button.getAttribute('data-orig-text');
+            if (orig) button.textContent = orig;
+          }
+          eqToast(_errorMessageCriollo('timeout-uncertain'), 'warn', { persistent: true });
+          onResult({ ok: false, reason: 'watchdog' });
+        }
+      }, 90000);
+    }
+
+    if (button) {
+      button.disabled = true;
+      button.classList.add('loading');
+      _startProgressMessages(button, opts.progressBaseMsg);
+    }
+
+    // sessionStorage pendingMutate (SPOF 72).
+    if (isMutation && opts.pendingPayload) {
+      try {
+        sessionStorage.setItem('eq:pendingMutate', JSON.stringify({
+          requestId: reqId,
+          fnName: fnName,
+          payload: opts.pendingPayload,
+          timestamp: Date.now()
+        }));
+      } catch (e) { /* SPOF 64 */ }
+    }
+
+    var timeoutMs = opts.timeoutMs || 60000;
+    var timer = setTimeout(function() { _onTimeout(reqId); }, timeoutMs);
+
+    _logEvent('callBackend.dispatch', { fnName: fnName, reqId: reqId, isMutation: isMutation });
+
+    function _resolveOnce(payload, source) {
+      if (_resolved[reqId] === true) return;
+      _resolved[reqId] = true;
+      clearTimeout(timer);
+      _stopProgressMessages();
+      if (isMutation) _resetMutateFlag();
+      if (button) {
+        button.disabled = false;
+        button.classList.remove('loading');
+        var orig = button.getAttribute('data-orig-text');
+        if (orig) button.textContent = orig;
+      }
+      // Limpiar pendingMutate.
+      try { sessionStorage.removeItem('eq:pendingMutate'); } catch (e) {}
+      _logEvent('callBackend.resolve', { fnName: fnName, reqId: reqId, source: source, ok: !!(payload && payload.ok) });
+      onResult(payload);
+    }
+
+    function _onTimeout(reqId) {
+      if (_resolved[reqId] === true) return;
+      _logEvent('callBackend.timeout', { fnName: fnName, reqId: reqId });
+      // SPOF 12: post-timeout verify via getEquipoDocenteForPanel (SPOF 14: timeout corto, único intento).
+      if (opts.verifyOnTimeout && opts.verifyExpectedEstado && opts.verifyEmail) {
+        google.script.run
+          .withSuccessHandler(function(res) {
+            _onVerifyResult(res, reqId);
+          })
+          .withFailureHandler(function() {
+            _resolveOnce({ ok: false, reason: 'timeout-uncertain' }, 'timeout-verify-failed');
+          })
+          .getEquipoDocenteForPanel();
+        // Timeout corto del verify.
+        setTimeout(function() {
+          if (_resolved[reqId] !== true) {
+            _resolveOnce({ ok: false, reason: 'timeout-uncertain' }, 'timeout-verify-timed-out');
+          }
+        }, 10000);
+      } else {
+        _resolveOnce({ ok: false, reason: 'timeout' }, 'timeout');
+      }
+    }
+
+    function _onVerifyResult(res, reqId) {
+      if (_resolved[reqId] === true) return;
+      if (res && res.ok && res.equipo) {
+        // Buscar docente por email.
+        var found = null;
+        ['activas', 'licencia', 'bajas'].forEach(function(sec) {
+          (res.equipo[sec] || []).forEach(function(d) {
+            if (_normalizeEmail(d.email) === _normalizeEmail(opts.verifyEmail)) found = d;
+          });
+        });
+        if (found && found.estado === opts.verifyExpectedEstado) {
+          // Server SÍ procesó, optimistic OK.
+          _resolveOnce({ ok: true, docente: found, warnings: ['handler_partial_recovered_via_verify'] }, 'verify-confirmed');
+        } else if (found) {
+          // Server NO procesó. SPOF 88: verify-2 a los 5s antes de revertir.
+          setTimeout(function() {
+            if (_resolved[reqId] === true) return;
+            google.script.run
+              .withSuccessHandler(function(res2) {
+                if (_resolved[reqId] === true) return;
+                var found2 = null;
+                if (res2 && res2.ok && res2.equipo) {
+                  ['activas', 'licencia', 'bajas'].forEach(function(sec) {
+                    (res2.equipo[sec] || []).forEach(function(d) {
+                      if (_normalizeEmail(d.email) === _normalizeEmail(opts.verifyEmail)) found2 = d;
+                    });
+                  });
+                }
+                if (found2 && found2.estado === opts.verifyExpectedEstado) {
+                  _resolveOnce({ ok: true, docente: found2, warnings: ['handler_partial_recovered_via_verify2'] }, 'verify2-confirmed');
+                } else {
+                  _resolveOnce({ ok: false, reason: 'timeout', verifyDocente: found2 || found }, 'verify2-not-applied');
+                }
+              })
+              .withFailureHandler(function() {
+                _resolveOnce({ ok: false, reason: 'timeout-uncertain' }, 'verify2-failed');
+              })
+              .getEquipoDocenteForPanel();
+          }, 5000);
+        } else {
+          _resolveOnce({ ok: false, reason: 'docente-not-found' }, 'verify-no-docente');
+        }
+      } else if (res && res.reason === 'busy') {
+        // Verify no pudo. Conservador.
+        _resolveOnce({ ok: false, reason: 'timeout-uncertain' }, 'verify-busy');
+      } else {
+        _resolveOnce({ ok: false, reason: 'timeout-uncertain' }, 'verify-error');
+      }
+    }
+
+    function _doRun(retryCount) {
+      retryCount = retryCount || 0;
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (_resolved[reqId] === true) return;
+          if (res && res.ok === false && res.reason === 'busy' && retryCount < 1) {
+            // Retry 1x post-3s (SPOF 14).
+            _logEvent('callBackend.retry-busy', { fnName: fnName, reqId: reqId });
+            setTimeout(function() { _doRun(retryCount + 1); }, 3000);
+            return;
+          }
+          if (res && res.ok === false && res.reason === 'busy' && retryCount >= 1) {
+            // SPOF 87: dos busy seguidos.
+            _resolveOnce({ ok: false, reason: 'busy-twice' }, 'busy-twice');
+            return;
+          }
+          _resolveOnce(res, 'success');
+        })
+        .withFailureHandler(function(err) {
+          if (_resolved[reqId] === true) return;
+          var errStr = (err && err.message) || String(err || '');
+          _logEvent('callBackend.failure', { fnName: fnName, reqId: reqId, err: errStr });
+          _resolveOnce({ ok: false, reason: 'handler-error', error: errStr }, 'failure');
+        })[fnName].apply(google.script.run, args || []);
+    }
+
+    _doRun(0);
+  }
+
+  // ============================================================
+  // 7. openSheet wrapper (SPOF 70, 77).
+  // ============================================================
+  var detailSheet = document.getElementById('detailSheet');
+  var actionsSheet = document.getElementById('actionsSheet');
+  var confirmSheet = document.getElementById('confirmSheet');
+
+  function openSheet(sheet) {
+    if (!sheet) return;
+    if (sheet.open) return;
+    // Cerrar dialog activo antes de abrir nuevo (recomendación abogado del diablo).
+    var openOne = document.querySelector('dialog.eq-dialog[open]');
+    if (openOne && openOne !== sheet) openOne.close();
+    try {
+      sheet.showModal();
+    } catch (e) {
+      _logEvent('openSheet.error', { id: sheet.id, err: String(e) });
+    }
+  }
+
+  function closeSheet(sheet) {
+    if (sheet && sheet.open) sheet.close();
+  }
+
+  // Click backdrop cierra dialog (SPOF 66).
+  [detailSheet, actionsSheet, confirmSheet].forEach(function(sheet) {
+    if (!sheet) return;
+    sheet.addEventListener('click', function(e) {
+      if (e.target === sheet) sheet.close();
+    });
+  });
+
+  // ============================================================
+  // 8. Population de dialogs — TEXTCONTENT ONLY (SPOF 89 BLOQUEANTE).
+  // ============================================================
+  var _currentTargetEmail = null;
+
+  function _formatFechaCorta(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
+      var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
+    } catch (e) { return '—'; }
+  }
+
+  function _formatFechaRelativa(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
+      var diff = Date.now() - d.getTime();
+      var dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+      if (dias <= 0) return 'hoy';
+      if (dias === 1) return 'ayer';
+      if (dias < 7) return 'hace ' + dias + ' días';
+      if (dias < 30) return 'hace ' + Math.floor(dias / 7) + ' semanas';
+      if (dias < 365) return 'hace ' + Math.floor(dias / 30) + ' meses';
+      return 'hace ' + Math.floor(dias / 365) + ' años';
+    } catch (e) { return '—'; }
+  }
+
+  function _buildEl(tag, opts) {
+    var el = document.createElement(tag);
+    if (opts) {
+      if (opts.cls) el.className = opts.cls;
+      if (opts.text != null) el.textContent = String(opts.text);
+      if (opts.id) el.id = opts.id;
+      if (opts.attrs) {
+        Object.keys(opts.attrs).forEach(function(k) { el.setAttribute(k, opts.attrs[k]); });
+      }
+    }
+    return el;
+  }
+
+  function _emptySheet(sheet) {
+    if (!sheet) return;
+    while (sheet.firstChild) sheet.removeChild(sheet.firstChild);
+  }
+
+  function _addSheetHeader(sheet, titleText, titleId) {
+    var hdr = _buildEl('div', { cls: 'eq-dialog-header' });
+    var h = _buildEl('h2', { cls: 'eq-dialog-title', id: titleId, text: titleText });
+    var btn = _buildEl('button', { cls: 'eq-dialog-close', text: '✕', attrs: { 'aria-label': 'Cerrar', type: 'button' } });
+    btn.addEventListener('click', function() { sheet.close(); });
+    hdr.appendChild(h);
+    hdr.appendChild(btn);
+    sheet.appendChild(hdr);
+  }
+
+  function showDetailSheet(d) {
+    if (!detailSheet || !d) return;
+    _currentTargetEmail = _normalizeEmail(d.email);
+    _emptySheet(detailSheet);
+    _addSheetHeader(detailSheet, _displayName(d), 'detailSheetTitle');
+    var body = _buildEl('div', { cls: 'eq-dialog-body' });
+
+    var sub = _buildEl('p', { text: (d.tipo || '—') + ' · ' + (d.estado || '—') });
+    body.appendChild(sub);
+
+    body.appendChild(_buildEl('p', { text: 'Email' }));
+    body.appendChild(_buildEl('p', { text: d.email || '—' }));
+
+    body.appendChild(_buildEl('p', { text: 'En el equipo desde' }));
+    body.appendChild(_buildEl('p', { text: _formatFechaCorta(d.fechaAlta_iso) }));
+
+    body.appendChild(_buildEl('p', { text: 'Último cambio' }));
+    body.appendChild(_buildEl('p', { text: _formatFechaRelativa(d.fechaCambio_iso) }));
+
+    var btnAcciones = _buildEl('button', {
+      cls: 'btn',
+      text: 'Acciones',
+      attrs: { type: 'button' }
+    });
+    btnAcciones.style.marginTop = '16px';
+    btnAcciones.addEventListener('click', function() {
+      detailSheet.close();
+      showActionsSheet(d);
+    });
+    body.appendChild(btnAcciones);
+
+    detailSheet.appendChild(body);
+    openSheet(detailSheet);
+    _logEvent('showDetailSheet', { email: d.email, estado: d.estado });
+  }
+
+  function showActionsSheet(d) {
+    if (!actionsSheet || !d) return;
+    _currentTargetEmail = _normalizeEmail(d.email);
+    _emptySheet(actionsSheet);
+    _addSheetHeader(actionsSheet, '¿Qué hacés con ' + _displayName(d) + '?', 'actionsSheetTitle');
+    var actions = _buildEl('div', { cls: 'eq-dialog-actions' });
+
+    var estado = d.estado || 'Activa';
+    if (estado === 'Activa') {
+      _addAccionBtn(actions, 'Avisar que está de licencia', 'Temporal. Vuelve cuando avisa.', 'eq-action-licencia', function() {
+        actionsSheet.close();
+        showConfirmSheet(d, 'marcarLicencia');
+      });
+      _addAccionBtn(actions, 'Dar de baja', 'Definitiva. Pierde acceso al Drive.', 'eq-action-baja', function() {
+        actionsSheet.close();
+        showConfirmSheet(d, 'darDeBaja');
+      });
+    } else if (estado === 'Licencia') {
+      _addAccionBtn(actions, 'Marcar que volvió', 'Vuelve a activa.', 'eq-action-volvio', function() {
+        actionsSheet.close();
+        showConfirmSheet(d, 'volvioLicencia');
+      });
+      _addAccionBtn(actions, 'Dar de baja', 'Definitiva. Pierde acceso al Drive.', 'eq-action-baja', function() {
+        actionsSheet.close();
+        showConfirmSheet(d, 'darDeBaja');
+      });
+    } else {
+      // No disponible — solo info.
+      var p = _buildEl('p', { text: 'Esta docente está dada de baja. No hay acciones disponibles.' });
+      actions.appendChild(p);
+    }
+    actionsSheet.appendChild(actions);
+    openSheet(actionsSheet);
+    _logEvent('showActionsSheet', { email: d.email, estado: estado });
+  }
+
+  function _addAccionBtn(parent, titleText, hintText, extraCls, onClick) {
+    var btn = _buildEl('button', {
+      cls: 'eq-action-btn ' + extraCls,
+      attrs: { type: 'button' }
+    });
+    var t = _buildEl('span', { cls: 'eq-action-title', text: titleText });
+    var h = _buildEl('span', { cls: 'eq-action-hint', text: hintText });
+    btn.appendChild(t);
+    btn.appendChild(h);
+    btn.addEventListener('click', onClick);
+    parent.appendChild(btn);
+  }
+
+  function showConfirmSheet(d, accion) {
+    if (!confirmSheet || !d) return;
+    _currentTargetEmail = _normalizeEmail(d.email);
+    _emptySheet(confirmSheet);
+
+    var title;
+    var resumen;
+    var nombreShown = _displayName(d);
+    var hoy = _formatFechaCorta(new Date().toISOString());
+
+    if (accion === 'marcarLicencia') {
+      title = 'Avisar licencia de ' + nombreShown;
+      resumen = 'Hoy es ' + hoy + '. Va a quedar registrada como de licencia desde hoy. Mantiene acceso al Drive (puede volver cuando avise).';
+    } else if (accion === 'volvioLicencia') {
+      title = 'Marcar que ' + nombreShown + ' volvió';
+      resumen = 'Hoy es ' + hoy + '. Va a quedar como activa de nuevo desde hoy.';
+    } else if (accion === 'darDeBaja') {
+      title = 'Dar de baja a ' + nombreShown;
+      resumen = 'Hoy es ' + hoy + '. Va a perder acceso al Drive y al panel. La operación no se puede deshacer.';
+    } else {
+      title = 'Confirmar acción';
+      resumen = '';
+    }
+
+    _addSheetHeader(confirmSheet, title, 'confirmSheetTitle');
+    var body = _buildEl('div', { cls: 'eq-dialog-body' });
+    body.appendChild(_buildEl('p', { text: resumen }));
+
+    // SPOF 97 fix — error banner inline para errores backend (validation client no aplica acá).
+    var operativoErrorDiv = _buildEl('div', { cls: 'eq-form-error', id: 'operativoError' });
+    body.appendChild(operativoErrorDiv);
+
+    var actions = _buildEl('div', { cls: 'eq-dialog-actions' });
+    var btnConfirm = _buildEl('button', {
+      cls: 'btn ' + (accion === 'darDeBaja' ? 'warn' : 'success'),
+      text: accion === 'darDeBaja' ? 'Confirmar baja' : (accion === 'volvioLicencia' ? 'Confirmar volvió' : 'Confirmar marcada'),
+      attrs: { type: 'button' }
+    });
+    btnConfirm.addEventListener('click', function() {
+      _onConfirmOperativo(d, accion, btnConfirm);
+    });
+    actions.appendChild(btnConfirm);
+
+    var btnCancel = _buildEl('button', {
+      cls: 'eq-action-btn eq-action-cancel',
+      attrs: { type: 'button' }
+    });
+    btnCancel.appendChild(_buildEl('span', { cls: 'eq-action-title', text: 'Cancelar' }));
+    btnCancel.addEventListener('click', function() { confirmSheet.close(); });
+    actions.appendChild(btnCancel);
+
+    body.appendChild(actions);
+    confirmSheet.appendChild(body);
+    openSheet(confirmSheet);
+    _logEvent('showConfirmSheet', { email: d.email, accion: accion });
+  }
+
+  function showSumarSheet() {
+    if (!confirmSheet) return;
+    _currentTargetEmail = null;
+    _emptySheet(confirmSheet);
+    _addSheetHeader(confirmSheet, 'Sumar nueva docente', 'confirmSheetTitle');
+    var body = _buildEl('div', { cls: 'eq-dialog-body' });
+
+    // SPOF 97 fix — error banner inline (toast bajo modal queda invisible).
+    var sumarErrorDiv = _buildEl('div', { cls: 'eq-form-error', id: 'sumarError' });
+    body.appendChild(sumarErrorDiv);
+
+    var form = _buildEl('form', { attrs: { id: 'eqSumarForm' } });
+    form.addEventListener('submit', function(e) { e.preventDefault(); }); // SPOF 57.
+
+    var fields = [
+      { id: 'sumApellidoNombre', label: 'Apellido y nombre', placeholder: 'Ej: Aguirre Carmen', required: true },
+      { id: 'sumDni',            label: 'DNI (opcional)',     placeholder: '12345678',           required: false },
+      { id: 'sumEmail',          label: 'Email',              placeholder: 'docente@gmail.com',  required: true },
+      { id: 'sumTipo',           label: 'Tipo (opcional)',    placeholder: 'Titular / Suplente / Docente JE / Otro', required: false }
+    ];
+    fields.forEach(function(f) {
+      var labelEl = _buildEl('label', { text: f.label, attrs: { for: f.id } });
+      labelEl.style.display = 'block';
+      labelEl.style.marginTop = '10px';
+      labelEl.style.fontSize = '14px';
+      labelEl.style.color = '#555';
+      var input = _buildEl('input', {
+        attrs: { id: f.id, name: f.id, type: 'text', placeholder: f.placeholder, autocomplete: 'off' }
+      });
+      input.style.width = '100%';
+      input.style.padding = '12px';
+      input.style.fontSize = '16px';
+      input.style.borderRadius = '8px';
+      input.style.border = '1px solid #ccc';
+      input.style.marginTop = '4px';
+      input.style.boxSizing = 'border-box';
+      input.addEventListener('input', _saveSumarDraft);
+      form.appendChild(labelEl);
+      form.appendChild(input);
+    });
+
+    body.appendChild(form);
+
+    var actions = _buildEl('div', { cls: 'eq-dialog-actions' });
+    var btnConfirm = _buildEl('button', {
+      cls: 'btn success',
+      text: 'Sumar al equipo',
+      attrs: { type: 'button' }
+    });
+    btnConfirm.addEventListener('click', function() {
+      _onConfirmSumar(btnConfirm);
+    });
+    actions.appendChild(btnConfirm);
+
+    var btnCancel = _buildEl('button', {
+      cls: 'eq-action-btn eq-action-cancel',
+      attrs: { type: 'button' }
+    });
+    btnCancel.appendChild(_buildEl('span', { cls: 'eq-action-title', text: 'Cancelar' }));
+    btnCancel.addEventListener('click', function() { confirmSheet.close(); });
+    actions.appendChild(btnCancel);
+
+    body.appendChild(actions);
+    confirmSheet.appendChild(body);
+
+    // Restore draft (SPOF 38, 64).
+    _restoreSumarDraft();
+
+    openSheet(confirmSheet);
+    _logEvent('showSumarSheet');
+  }
+
+  // ============================================================
+  // 9. sessionStorage draft Sumar (SPOF 38, 64).
+  // ============================================================
+  function _saveSumarDraft() {
+    try {
+      var payload = _readSumarPayload();
+      sessionStorage.setItem('eq:sumar-draft', JSON.stringify(payload));
+    } catch (e) { /* no-op */ }
+  }
+
+  function _restoreSumarDraft() {
+    try {
+      var raw = sessionStorage.getItem('eq:sumar-draft');
+      if (!raw) return;
+      var draft = JSON.parse(raw);
+      if (!draft) return;
+      var apE = document.getElementById('sumApellidoNombre');
+      var dniE = document.getElementById('sumDni');
+      var emE = document.getElementById('sumEmail');
+      var tipoE = document.getElementById('sumTipo');
+      if (apE) apE.value = draft.apellidoNombre || '';
+      if (dniE) dniE.value = draft.dni || '';
+      if (emE) emE.value = draft.email || '';
+      if (tipoE) tipoE.value = draft.tipo || '';
+    } catch (e) { /* no-op */ }
+  }
+
+  function _clearSumarDraft() {
+    try { sessionStorage.removeItem('eq:sumar-draft'); } catch (e) {}
+  }
+
+  function _readSumarPayload() {
+    var apE = document.getElementById('sumApellidoNombre');
+    var dniE = document.getElementById('sumDni');
+    var emE = document.getElementById('sumEmail');
+    var tipoE = document.getElementById('sumTipo');
+    var apN = (apE && apE.value) || '';
+    var parts = apN.split(/\s+/).filter(function(s) { return s.length > 0; });
+    var apellido = parts.length > 0 ? parts[0] : '';
+    var nombre = parts.slice(1).join(' ');
+    return {
+      apellidoNombre: apN,
+      apellido: apellido,
+      nombre: nombre,
+      dni: (dniE && dniE.value) || '',
+      email: (emE && emE.value) || '',
+      tipo: (tipoE && tipoE.value) || ''
+    };
+  }
+
+  // ============================================================
+  // 10. Validation client-side Sumar (SPOFs 21, 28, 30, 31, 93).
+  // ============================================================
+  function validateSumar(payload) {
+    var apellido = _normalizeNombre(payload.apellido);
+    var email = _normalizeEmail(payload.email);
+    if (!apellido) return { ok: false, reason: 'apellido-vacio' };
+    if (apellido.indexOf(',') !== -1) return { ok: false, reason: 'apellido-con-coma' };
+    if (!email) return { ok: false, reason: 'email-vacio' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, reason: 'email-invalido' };
+    // Duplicate check contra window.__docentes (NFC + lowercase).
+    var sec = ['activas', 'licencia', 'bajas'];
+    for (var s = 0; s < sec.length; s++) {
+      var arr = window.__docentes[sec[s]];
+      for (var i = 0; i < arr.length; i++) {
+        if (_normalizeEmail(arr[i].email) === email) {
+          return { ok: false, reason: 'email-duplicado', existente: arr[i] };
+        }
+      }
+    }
+    return { ok: true };
+  }
+
+  // ============================================================
+  // 11. Optimistic UI.
+  // ============================================================
+  function markCardEnviando(email) {
+    var card = _findCardEl(email);
+    if (!card) return;
+    card.classList.add('eq-card-loading');
+    var meta = card.querySelector('.eq-card-meta');
+    if (meta) {
+      meta.setAttribute('data-orig', meta.textContent);
+      meta.textContent = 'Enviando…';
+    }
+  }
+
+  function unmarkCardEnviando(email) {
+    var card = _findCardEl(email);
+    if (!card) return;
+    card.classList.remove('eq-card-loading');
+    var meta = card.querySelector('.eq-card-meta');
+    if (meta) {
+      var orig = meta.getAttribute('data-orig');
+      if (orig != null) {
+        meta.textContent = orig;
+        meta.removeAttribute('data-orig');
+      }
+    }
+  }
+
+  function migrateCardToSection(email, estadoNuevo) {
+    var card = _findCardEl(email);
+    if (!card) return;
+    var bucket = estadoNuevo === 'Activa' ? 'activas'
+               : estadoNuevo === 'Licencia' ? 'licencia'
+               : 'bajas';
+    var sectionDetails = document.querySelectorAll('.eq-group');
+    var targetUl = null;
+    var idx = bucket === 'activas' ? 0 : bucket === 'licencia' ? 1 : 2;
+    if (sectionDetails[idx]) {
+      // Expandir si está colapsada (SPOF 51).
+      if (!sectionDetails[idx].open) sectionDetails[idx].open = true;
+      targetUl = sectionDetails[idx].querySelector('.eq-card-list');
+    }
+    if (targetUl && targetUl !== card.parentElement) {
+      // Sacar el placeholder vacío si existía.
+      var emptyEl = targetUl.querySelector('.eq-card-empty');
+      if (emptyEl) emptyEl.parentElement.removeChild(emptyEl);
+      // Mover.
+      targetUl.appendChild(card);
+    }
+    card.setAttribute('data-estado', estadoNuevo);
+    _updateGroupCounts();
+  }
+
+  function _updateGroupCounts() {
+    var groups = document.querySelectorAll('.eq-group');
+    var labels = ['Activas', 'De licencia', 'Dadas de baja'];
+    var counts = [0, 0, 0];
+    groups.forEach(function(g, i) {
+      var ul = g.querySelector('.eq-card-list');
+      var summary = g.querySelector('.eq-group-summary');
+      if (!ul || !summary) return;
+      var cnt = ul.querySelectorAll('.eq-card').length;
+      counts[i] = cnt;
+      summary.textContent = labels[i] + ' (' + cnt + ')';
+    });
+    // Sync resumen "Mi equipo hoy" (PR-1).
+    var nums = document.querySelectorAll('.eq-resumen-num');
+    nums.forEach(function(n, i) {
+      if (counts[i] !== undefined) n.textContent = counts[i];
+    });
+  }
+
+  function updateCardData(docente) {
+    var card = _findCardEl(docente.email);
+    if (!card) return;
+    var meta = card.querySelector('.eq-card-meta');
+    if (meta) {
+      meta.removeAttribute('data-orig');
+      meta.textContent = docente.tipo || '—';
+    }
+    var name = card.querySelector('.eq-card-name');
+    if (name) name.textContent = _displayName(docente);
+  }
+
+  function revertCard(email, estadoOriginal) {
+    unmarkCardEnviando(email);
+    if (estadoOriginal) migrateCardToSection(email, estadoOriginal);
+  }
+
+  function insertCardForNewDocente(d) {
+    // Crea un <li class="eq-card"> nuevo e inserta en sección Activas.
+    var li = _buildEl('li', { cls: 'eq-card', attrs: { 'data-email': _normalizeEmail(d.email), 'data-estado': d.estado || 'Activa' } });
+    var avatar = _buildEl('span', { cls: 'eq-avatar eq-avatar-' + _avatarColorIdx(d), text: _initial(d) });
+    var bodyDiv = _buildEl('div', { cls: 'eq-card-body' });
+    bodyDiv.appendChild(_buildEl('div', { cls: 'eq-card-name', text: _displayName(d) }));
+    bodyDiv.appendChild(_buildEl('div', { cls: 'eq-card-meta', text: d.tipo || '—' }));
+    li.appendChild(avatar);
+    li.appendChild(bodyDiv);
+    var groups = document.querySelectorAll('.eq-group');
+    if (groups[0]) {
+      if (!groups[0].open) groups[0].open = true;
+      var ul = groups[0].querySelector('.eq-card-list');
+      if (ul) {
+        var emptyEl = ul.querySelector('.eq-card-empty');
+        if (emptyEl) emptyEl.parentElement.removeChild(emptyEl);
+        ul.appendChild(li);
+      }
+    }
+    _updateGroupCounts();
+  }
+
+  // ============================================================
+  // 12. Confirm operativo handler.
+  // ============================================================
+  function _onConfirmOperativo(d, accion, button) {
+    var emailLow = _normalizeEmail(d.email);
+    var estadoOriginal = d.estado;
+    var estadoNuevo = accion === 'marcarLicencia' ? 'Licencia'
+                    : accion === 'volvioLicencia' ? 'Activa'
+                    : accion === 'darDeBaja' ? 'No disponible'
+                    : null;
+    if (!estadoNuevo) {
+      eqToast('Acción no reconocida.', 'error');
+      return;
+    }
+
+    // Optimistic.
+    markCardEnviando(emailLow);
+    migrateCardToSection(emailLow, estadoNuevo);
+
+    callBackend('submitOperativoFromPanel', [accion, emailLow], {
+      isMutation: true,
+      button: button,
+      verifyOnTimeout: true,
+      verifyExpectedEstado: estadoNuevo,
+      verifyEmail: emailLow,
+      pendingPayload: { accion: accion, email: emailLow, estadoNuevo: estadoNuevo },
+      onResult: function(res) {
+        if (res && res.ok && res.docente) {
+          // Confirm: actualizar window.__docentes + DOM.
+          _updateWindowDocentes(res.docente);
+          unmarkCardEnviando(emailLow);
+          updateCardData(res.docente);
+          // El estado del docente puede diferir si verify retornó otra cosa.
+          if (res.docente.estado !== estadoNuevo) {
+            migrateCardToSection(emailLow, res.docente.estado);
+          }
+          var msg;
+          if (accion === 'marcarLicencia') msg = _displayName(res.docente) + ' marcada de licencia.';
+          else if (accion === 'volvioLicencia') msg = _displayName(res.docente) + ' marcada como activa.';
+          else if (accion === 'darDeBaja') msg = _displayName(res.docente) + ' dada de baja.';
+          else msg = 'Listo.';
+          if (res.warnings && res.warnings.length > 0) {
+            // Warnings: toast naranja persistente con detalle.
+            var detail = '';
+            if (res.warnings.indexOf('drive_access_no_revoked') !== -1) {
+              detail = ' Pero el acceso al Drive quedó pendiente, avisale al equipo.';
+            } else if (res.warnings.indexOf('dropdowns_stale') !== -1) {
+              detail = ' (Los formularios pueden tardar unos segundos en actualizarse.)';
+            } else if (res.warnings.indexOf('handler_partial_recovered_via_verify') !== -1) {
+              detail = ' (Tardó más de lo normal pero quedó guardado.)';
+            }
+            eqToast(msg + detail, 'warn', { persistent: true });
+          } else {
+            eqToast(msg, 'success', { persistent: true });
+          }
+          confirmSheet && confirmSheet.close();
+        } else {
+          // Failure: revertir.
+          revertCard(emailLow, estadoOriginal);
+          var reason = (res && res.reason) || 'unknown';
+          var errMsg = _errorMessageCriollo(reason, res && res.error);
+          eqToast(errMsg, reason === 'busy' || reason === 'timeout-uncertain' ? 'warn' : 'error', { persistent: true });
+          confirmSheet && confirmSheet.close();
+          _logEvent('confirmOperativo.fail', { accion: accion, reason: reason });
+        }
+      }
+    });
+  }
+
+  // ============================================================
+  // 13. Confirm Sumar handler.
+  // ============================================================
+  function _onConfirmSumar(button) {
+    _clearFormError('sumarError');  // SPOF 97 fix.
+    var payload = _readSumarPayload();
+    var v = validateSumar(payload);
+    if (!v.ok) {
+      var msg = _errorMessageCriollo(v.reason);
+      if (v.reason === 'email-duplicado' && v.existente) {
+        msg = 'Ya tenés a ' + _displayName(v.existente) + ' cargada como ' + v.existente.estado + '.';
+      }
+      // SPOF 97 fix: error inline (dialog está abierto, toast quedaría tapado).
+      _showFormError('sumarError', msg);
+      return;
+    }
+
+    callBackend('submitSumarFromPanel', [{
+      apellido: payload.apellido,
+      nombre: payload.nombre,
+      dni: payload.dni,
+      email: _normalizeEmail(payload.email),
+      tipo: payload.tipo
+    }], {
+      isMutation: true,
+      button: button,
+      pendingPayload: { fnName: 'submitSumarFromPanel', email: payload.email },
+      onResult: function(res) {
+        if (res && res.ok && res.docente) {
+          _updateWindowDocentes(res.docente);
+          insertCardForNewDocente(res.docente);
+          var msg = _displayName(res.docente) + ' sumada al equipo.';
+          if (res.warnings && res.warnings.length > 0) {
+            eqToast(msg + ' (Algunos pasos quedaron pendientes — revisá Drive si hace falta.)', 'warn', { persistent: true });
+          } else {
+            eqToast(msg, 'success', { persistent: true });
+          }
+          _clearSumarDraft();
+          confirmSheet && confirmSheet.close();
+        } else {
+          var reason = (res && res.reason) || 'unknown';
+          var errMsg;
+          if (reason === 'email-duplicado' && res.existente) {
+            errMsg = 'Ya tenés a ' + (res.existente.apellido || res.existente.nombre || 'esa docente') + ' cargada como ' + res.existente.estado + '.';
+          } else {
+            errMsg = _errorMessageCriollo(reason, res && res.error);
+          }
+          // SPOF 97 fix: si dialog sigue abierto, error inline; sino fallback toast.
+          if (confirmSheet && confirmSheet.open && _showFormError('sumarError', errMsg)) {
+            // mostrado inline OK
+          } else {
+            eqToast(errMsg, 'error', { persistent: true });
+          }
+          _logEvent('confirmSumar.fail', { reason: reason });
+        }
+      }
+    });
+  }
+
+  // ============================================================
+  // 14. Listeners principales (event delegation).
+  // ============================================================
+  document.body.addEventListener('click', function(e) {
+    // Tap card.
+    var card = e.target.closest && e.target.closest('.eq-card');
+    if (card && !card.classList.contains('eq-card-empty') && !card.classList.contains('eq-card-loading')) {
+      var emailRaw = card.getAttribute('data-email') || '';
+      var d = _findDocenteInWindow(emailRaw);
+      if (d) {
+        showDetailSheet(d);
+        return;
+      }
+    }
+  });
+
+  // Botón Sumar.
+  var btnSumar = document.getElementById('btnSumar');
+  if (btnSumar) {
+    btnSumar.addEventListener('click', function() { showSumarSheet(); });
+  }
+
+  // Botón Ver detalle del resumen "Mi equipo hoy" — paso 18.
+  var btnVerDetalle = document.getElementById('btnVerDetalle');
+  if (btnVerDetalle) {
+    btnVerDetalle.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = document.getElementById('equipoDocente');
+      if (!target) return;
+      // Auto-expand sección Bajas (3er <details>) si está colapsada (PR-3).
+      var groups = target.querySelectorAll('.eq-group');
+      if (groups[2] && !groups[2].open) groups[2].open = true;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  // ============================================================
+  // 15. Listeners globales (visibilitychange + visualViewport).
+  // ============================================================
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden && _mutateInFlight) {
+      _mutateHiddenAt = performance.now();
+    } else if (!document.hidden && _mutateInFlight) {
+      var elapsed = performance.now() - _mutateStartedAt;
+      if (elapsed > 60000) {
+        _logEvent('visibilitychange.reconcile-needed', { elapsed: elapsed });
+        // Forzar refresh full grid.
+        google.script.run
+          .withSuccessHandler(function(res) {
+            if (res && res.ok && res.equipo) {
+              window.__docentes = res.equipo;
+              eqToast('Recargá la página para ver el estado actualizado.', 'warn', { persistent: true, duration: 10000 });
+            }
+          })
+          .withFailureHandler(function() {})
+          .getEquipoDocenteForPanel();
+      }
+    }
+    // AD-6 fix — toast con timer pausado en background mobile.
+    // Al volver visible, calcular tiempo restante y resetear timer (o dismiss si ya venció).
+    if (!document.hidden && _toastShownAt && _toastTimer) {
+      var toastElapsed = Date.now() - _toastShownAt;
+      if (toastElapsed >= _toastDurationMs) {
+        _dismissToast();
+      } else {
+        clearTimeout(_toastTimer);
+        _toastTimer = setTimeout(function() { _dismissToast(); }, _toastDurationMs - toastElapsed);
+      }
+    }
+  });
+
+  // visualViewport (SPOF 20, 62).
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function() {
+      var open = document.querySelector('dialog.eq-dialog[open]');
+      if (!open) return;
+      var focused = document.activeElement;
+      if (focused && focused.scrollIntoView) {
+        try { focused.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+      }
+    });
+  }
+
+  // ============================================================
+  // 16. On load: pendingMutate verify + deploy version check.
+  // ============================================================
+  try {
+    var pendingRaw = sessionStorage.getItem('eq:pendingMutate');
+    if (pendingRaw) {
+      var pending = JSON.parse(pendingRaw);
+      if (pending && pending.timestamp && (Date.now() - pending.timestamp) < 60000) {
+        eqToast('Tu acción anterior puede haber quedado en el aire. Revisá si ' + (pending.payload && pending.payload.email || 'esa docente') + ' quedó como esperabas.', 'warn', { persistent: true, duration: 10000 });
+      }
+      sessionStorage.removeItem('eq:pendingMutate');
+    }
+  } catch (e) {}
+
+  // Deploy version check (SPOF 36, 80).
+  if (window.__deployVersion) {
+    google.script.run
+      .withSuccessHandler(function(serverVersion) {
+        if (serverVersion && String(serverVersion) !== String(window.__deployVersion)) {
+          eqToast('Hay una versión nueva del panel. Recargá la página.', 'warn', { persistent: true, duration: 10000 });
+        }
+      })
+      .withFailureHandler(function() { /* silent */ })
+      .getDeployVersion();
+  }
+
+  // CSS overscroll-behavior para evitar pull-to-refresh durante operaciones (SPOF 74).
+  document.body.style.overscrollBehaviorY = 'contain';
+
+  _logEvent('panel.init.ok', { docentesCount: window.__docentes.activas.length + window.__docentes.licencia.length + window.__docentes.bajas.length });
+})();
 </script>
 
 </body>
