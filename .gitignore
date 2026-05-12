@@ -78,6 +78,9 @@ build/
 CAPSULA-FASE-*.md
 Snapshot-*.md
 BRIEFING-*.md
+# Checklist de pendientes / status vivo del workspace Forja (privado por ahora,
+# decision diferida sobre publicarlo 2026-05-12).
+checklist-pendientes.md
 # MANIFEST del drop original (meta del proceso de construccion, no producto).
 MANIFEST.md
 
