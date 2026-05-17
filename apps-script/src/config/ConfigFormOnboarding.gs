@@ -80,8 +80,8 @@ const ONBOARDING_FORM_CFG = {
     },
     {
       type: 'SHORT_TEXT',
-      title: 'director_cuil',
-      helpText: 'CUIL (opcional hoy, recomendado). Lo usa Fase 3 para pre-carga en SGE. Formato: 20-12345678-9.'
+      title: 'director_dni',
+      helpText: 'DNI de la directora (opcional). Solo el numero, sin puntos ni espacios.'
     },
 
     // ========================================================================

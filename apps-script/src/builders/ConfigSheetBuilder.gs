@@ -55,8 +55,9 @@ const ConfigSheetBuilder = {
     {
       name: '👥 Docentes',
       kind: 'table',
-      headers: ['nombre_completo', 'cuil', 'email', 'rol', 'espacios_asignados', 'activo'],
-      helptext: 'Lista docente del año. CUIL obligatorio para sincronizar con SGE. "rol": titular | suplente | pareja_pedagogica. "activo": true | false.'
+      headers: ['Apellido', 'Nombre', 'DNI', 'Email', 'Tipo', 'Estado', 'Fecha alta', 'Fecha cambio Estado', 'Notas', 'Token'],
+      helptext: 'Lista docente del año. Apellido + Nombre + Email obligatorios. DNI y Tipo opcionales (Tipo: Titular | Suplente | Docente JE | Otro). Estado lo cambia el sistema cuando tocás los botones del Panel Directora (Activa | Licencia | No disponible). Fecha alta y Fecha cambio: el sistema las completa solo. Notas: campo libre, escribí lo que quieras. Token: NO lo toques — el sistema lo usa para el link personal del Panel Directora.',
+      hiddenColumns: [10]
     },
     {
       name: '📚 Secciones',
@@ -87,6 +88,12 @@ const ConfigSheetBuilder = {
       kind: 'table',
       headers: ['form', 'url', 'creado', 'respuestas'],
       helptext: 'Catalogo de los 11 Forms del ciclo escolar. setupAll() popula esta pestana automaticamente tras crear cada Form. "respuestas": contador manual o via funcion de actualizacion.'
+    },
+    {
+      name: '📋 Estado del sistema',
+      kind: 'table',
+      headers: ['Fecha', 'Tipo', 'Quién', 'Qué', 'Detalle'],
+      helptext: 'Log auditable de operaciones e intentos del sistema. NO editar manualmente. Tipo: INFO (operación normal) | WARN (situación esperada pero atípica) | ERROR (algo falló, puede requerir acción manual). Quién: email de quien ejecutó la operación. Qué: descripción corta. Detalle: contexto extra (errores, IDs, payload).'
     }
   ],
 
@@ -169,6 +176,15 @@ const ConfigSheetBuilder = {
 
     // Freeze headers + helptext
     tab.setFrozenRows(2);
+
+    // Hide columns marked as cfg.hiddenColumns (1-indexed). Used by 👥 Docentes
+    // to ocultar la columna Token, que el sistema usa pero la directora no debe
+    // editar — evita confusión visual sin perder el dato necesario para el link.
+    if (cfg.hiddenColumns && cfg.hiddenColumns.length > 0) {
+      cfg.hiddenColumns.forEach(function(colNum) {
+        tab.hideColumns(colNum);
+      });
+    }
   },
 
   /**

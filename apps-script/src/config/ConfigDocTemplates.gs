@@ -30,8 +30,9 @@
  *   1. Agregar entrada acá con los 5 campos.
  *   2. Agregar función _buildTemplateFxx() en DocTemplateBuilder.gs.
  *   3. Re-correr buildAllDocTemplates() (idempotent: solo crea los nuevos).
- *   4. Agregar Fxx al array FORMAL_FORM_IDS de FormalFormsTriggerManager.gs.
- *   5. Re-correr installFormalFormTriggers() (idempotent).
+ *   4. Agregar el sheetName del form al DISPATCH_TABLE de OnSubmitDispatcher.gs
+ *      delegando a _delegateToFormalSubmit('Fxx').
+ *   5. Re-correr installSubmitDispatcher() (idempotent).
  */
 
 const DOC_TEMPLATES = {
@@ -132,7 +133,9 @@ const DOC_TEMPLATES = {
 
 /**
  * DOC_TEMPLATE_FORM_IDS — array de formIds que tienen doc template configurado.
- * Lo usa FormalFormsTriggerManager para iterar en installFormalFormTriggers().
+ * Usado por DocTemplateBuilder.buildAll() para iterar al crear los 9 templates,
+ * por SmokeTests para validar la cobertura, y por FormalFormsTriggerManager
+ * (_findFormIdForInstance reverse lookup post handleSubmit @deprecated).
  */
 const DOC_TEMPLATE_FORM_IDS = Object.keys(DOC_TEMPLATES);
 

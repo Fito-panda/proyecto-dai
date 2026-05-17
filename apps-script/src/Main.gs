@@ -31,14 +31,122 @@ function buildAllDocTemplates() {
 }
 
 /**
- * installFormalFormTriggers — ejecutar UNA VEZ tras buildAllDocTemplates para
- * instalar los 9 triggers onFormSubmit que disparan generación automática de
- * Google Doc al recibir respuestas de los Forms formales.
- * Idempotente: reusa triggers existentes.
- * Fase 2.5 del plan v9.
+ * installSubmitDispatcher — paso 9/20 plan v3 baja/suplentes-docente
+ * (2026-04-28, v2 post-validacion). Instala N triggers Sheet-bound (uno por
+ * cada Sheet de respuestas en DISPATCH_TABLE) con handler único
+ * onFormSubmitDispatcher. Reemplaza los 9 triggers viejos onFormalFormSubmit
+ * desinstalados en paso 8.5.
+ *
+ * Arquitectura post-fix v2: cada form tiene su propio Spreadsheet de
+ * respuestas (FormBuilder crea 1 Sheet separado por form en
+ * 06-Sheets-Maestros). Por eso necesitamos UN trigger Sheet-bound POR CADA
+ * Sheet de respuestas — el plan v3 §9 originalmente asumió que todos los
+ * forms compartían 1 Sheet container, pero la realidad es 15 Sheets separados.
+ *
+ * Cleanup automático: borra cualquier trigger viejo con handler
+ * onFormSubmitDispatcher antes de instalar los nuevos. Idempotente.
+ *
+ * Pre-condiciones:
+ *   - setupAll() ya corrio (PropertiesRegistry tiene keys 'sheet:SHEET-*-2026').
+ *   - OnSubmitDispatcher.gs cargado con DISPATCH_TABLE poblada.
+ *   - Paso 8.5 completado (sin triggers onFormalFormSubmit).
+ *
+ * Retorna: { cleaned, installed, failed, targets, message }.
  */
-function installFormalFormTriggers() {
-  return FormalFormsTriggerManager.install();
+function installSubmitDispatcher() {
+  const handlerName = 'onFormSubmitDispatcher';
+
+  // 0. Cachear template container ID en PropertiesRegistry para que
+  // TemplateResolver.resolve() lo encuentre desde triggers Sheet-bound
+  // (donde getActiveSpreadsheet() retorna el Sheet del trigger, no el template).
+  // Bug arquitectónico cazado durante validación funcional paso 9.
+  // Refactor paso 10.1: delega a TemplateResolver (utils/TemplateResolver.gs).
+  try {
+    const activeForCache = SpreadsheetApp.getActiveSpreadsheet();
+    if (activeForCache && typeof TemplateResolver !== 'undefined' && TemplateResolver.cache) {
+      const cached = TemplateResolver.cache(activeForCache);
+      console.log('installSubmitDispatcher: template container cacheado = ' + cached);
+    }
+  } catch (cacheErr) {
+    console.warn('installSubmitDispatcher: TemplateResolver.cache fallo: ' + cacheErr);
+  }
+
+  // 1. Cleanup: borrar triggers viejos con handler onFormSubmitDispatcher.
+  // Incluye el zombie del v1 (apuntaba al template, nunca recibio eventos).
+  const existing = ScriptApp.getProjectTriggers();
+  let cleaned = 0;
+  for (let i = 0; i < existing.length; i++) {
+    const t = existing[i];
+    if (t.getHandlerFunction() === handlerName) {
+      try {
+        ScriptApp.deleteTrigger(t);
+        cleaned++;
+      } catch (err) {
+        console.warn('installSubmitDispatcher cleanup fallo UID ' +
+          t.getUniqueId() + ': ' + err);
+      }
+    }
+  }
+  console.log('installSubmitDispatcher: ' + cleaned + ' triggers viejos limpiados.');
+
+  // 2. Identificar Sheets de respuestas que tienen entry en DISPATCH_TABLE.
+  // Solo instalar triggers para esos (excluir SHEET-Listas-Maestras y otros
+  // Sheets que no son destinos de forms del ciclo).
+  if (typeof DISPATCH_TABLE === 'undefined') {
+    throw new Error('installSubmitDispatcher: DISPATCH_TABLE no definido. Verificar OnSubmitDispatcher.gs.');
+  }
+
+  const sheetNamesEnDispatch = Object.keys(DISPATCH_TABLE);
+  const allEntries = PropertiesRegistry.all();
+  const targets = [];
+
+  sheetNamesEnDispatch.forEach(function(sheetName) {
+    const key = 'sheet:' + sheetName;
+    const entry = allEntries[key];
+    if (entry && entry.id) {
+      targets.push({ sheetName: sheetName, sheetId: entry.id });
+    } else {
+      console.warn('installSubmitDispatcher: ' + key + ' no encontrada en registry. Skip.');
+    }
+  });
+
+  console.log('installSubmitDispatcher: ' + targets.length + '/' +
+    sheetNamesEnDispatch.length + ' sheets target identificados.');
+
+  // 3. Instalar trigger por cada Sheet target.
+  const installed = [];
+  const failed = [];
+  targets.forEach(function(target) {
+    try {
+      const ss = SpreadsheetApp.openById(target.sheetId);
+      const trigger = ScriptApp.newTrigger(handlerName)
+        .forSpreadsheet(ss)
+        .onFormSubmit()
+        .create();
+      installed.push({
+        sheetName: target.sheetName,
+        triggerUid: trigger.getUniqueId()
+      });
+      console.log('installSubmitDispatcher: trigger instalado para ' +
+        target.sheetName + ' UID ' + trigger.getUniqueId());
+    } catch (err) {
+      failed.push({ sheetName: target.sheetName, error: String(err) });
+      console.error('installSubmitDispatcher: fallo trigger para ' +
+        target.sheetName + ': ' + err);
+    }
+  });
+
+  const result = {
+    cleaned: cleaned,
+    installed: installed.length,
+    failed: failed.length,
+    targets: targets.length,
+    message: 'Cleanup: ' + cleaned + ' viejos. Instalados: ' + installed.length +
+      '/' + targets.length + '. Fallos: ' + failed.length + '.'
+  };
+
+  console.log('installSubmitDispatcher OK: ' + result.message);
+  return result;
 }
 
 /**
@@ -218,4 +326,279 @@ function onFormSubmitHandler(e) {
  */
 function onFormalFormSubmit(e) {
   return FormalFormsTriggerManager.handleSubmit(e);
+}
+
+/**
+ * cleanupOrphanColumns — limpia cols huerfanas pre-fix D-F3c-NUEVO-12
+ * (2026-04-28 sesion 2 vuelta 5). One-shot manual.
+ *
+ * Recorre los Sheets de respuestas vinculados a forms en el registry y
+ * detecta cols con headers DUPLICADOS donde una de las dos esta totalmente
+ * vacia (deja la otra con data). Borra las cols vacias del par duplicado.
+ *
+ * Heuristica conservadora: NO toca cols con headers unicos (incluso si
+ * estan vacias — pueden ser items opcionales). Solo borra cols vacias
+ * cuando hay 2+ cols con el mismo header — indica recreacion de items
+ * por bug pre-fix raiz D-F3c-NUEVO-12.
+ *
+ * Idempotente: si no hay duplicados, no toca nada y retorna report con
+ * sheetsCleaned:0. Si la fix raiz funciona y nadie crea duplicados nuevos,
+ * basta con correr esta funcion 1 vez para limpiar deuda historica.
+ *
+ * No depende de form.getItems() — solo del Sheet, mas defensivo: si el
+ * form se borro o cambio, la funcion sigue siendo correcta porque mira
+ * solo la estructura del Sheet.
+ *
+ * Retorna: { processed, sheetsCleaned, colsRemoved, details: [{sheet, removed}] }.
+ */
+function cleanupOrphanColumns() {
+  const allEntries = PropertiesRegistry.all();
+  const sheetKeys = Object.keys(allEntries).filter(function(k) {
+    return k.indexOf('sheet:SHEET-') === 0;
+  });
+
+  const report = {
+    processed: 0,
+    sheetsCleaned: 0,
+    colsRemoved: 0,
+    details: []
+  };
+
+  sheetKeys.forEach(function(key) {
+    const entry = allEntries[key];
+    if (!entry || !entry.id) return;
+
+    const sheetLabel = key.replace('sheet:', '');
+
+    try {
+      const ss = SpreadsheetApp.openById(entry.id);
+      // Tomar el primer Sheet del Spreadsheet (el de respuestas del form).
+      const tabs = ss.getSheets();
+      if (!tabs || !tabs.length) {
+        report.processed++;
+        return;
+      }
+      const tab = tabs[0];
+
+      const lastCol = tab.getLastColumn();
+      const lastRow = tab.getLastRow();
+      if (lastCol <= 1) {
+        report.processed++;
+        return; // solo Timestamp o vacio, nada que limpiar
+      }
+
+      const headers = tab.getRange(1, 1, 1, lastCol).getValues()[0];
+
+      // Agrupar cols por header
+      const headerToCols = {};
+      headers.forEach(function(h, idx) {
+        const headerStr = String(h || '').trim();
+        if (!headerStr) return; // cols sin header, ignorar
+        if (!headerToCols[headerStr]) headerToCols[headerStr] = [];
+        headerToCols[headerStr].push(idx + 1); // 1-indexed
+      });
+
+      const colsToDelete = [];
+
+      Object.keys(headerToCols).forEach(function(h) {
+        const cols = headerToCols[h];
+        if (cols.length < 2) return; // sin duplicate
+
+        // Para cada col del duplicate, contar filas con data
+        const colDataCounts = cols.map(function(colNum) {
+          if (lastRow < 2) return { col: colNum, count: 0 };
+          const values = tab.getRange(2, colNum, lastRow - 1, 1).getValues();
+          let count = 0;
+          for (let i = 0; i < values.length; i++) {
+            if (String(values[i][0] || '').trim()) count++;
+          }
+          return { col: colNum, count: count };
+        });
+
+        // Sortear por count descendente — la(s) con mas data al frente
+        colDataCounts.sort(function(a, b) { return b.count - a.count; });
+
+        // Edge case cazado en code review (2026-04-28 sesion 2):
+        // Si la primera col (con mas data) tiene count === 0, todas las cols
+        // del duplicate estan vacias — caso ambiguo: no sabemos cual es la
+        // "real" del form actual y cual es huerfana sin form.getItems() lookup.
+        // Conservador: NO borrar nada cuando todas estan vacias.
+        if (colDataCounts[0].count === 0) {
+          return; // skipear este header — duplicate todo vacio, ambiguo
+        }
+
+        // Path normal: hay 1+ col con data legitima. Las que tienen count=0
+        // son huerfanas pre-fix raiz. Borrar.
+        for (let i = 1; i < colDataCounts.length; i++) {
+          if (colDataCounts[i].count === 0) {
+            colsToDelete.push(colDataCounts[i].col);
+          }
+        }
+      });
+
+      // Borrar en orden inverso para mantener indices correctos
+      colsToDelete.sort(function(a, b) { return b - a; });
+      colsToDelete.forEach(function(colNum) {
+        tab.deleteColumn(colNum);
+      });
+
+      if (colsToDelete.length > 0) {
+        report.sheetsCleaned++;
+        report.colsRemoved += colsToDelete.length;
+        report.details.push({
+          sheet: sheetLabel,
+          removed: colsToDelete.length
+        });
+        console.log('cleanupOrphanColumns: ' + sheetLabel + ' — ' +
+          colsToDelete.length + ' cols huerfanas borradas');
+      }
+
+      report.processed++;
+    } catch (err) {
+      console.error('cleanupOrphanColumns: ' + sheetLabel + ' fallo: ' + err);
+    }
+  });
+
+  console.log('cleanupOrphanColumns OK: ' + report.sheetsCleaned + '/' +
+    report.processed + ' sheets limpiados, ' + report.colsRemoved +
+    ' cols huerfanas borradas en total.');
+
+  return report;
+}
+
+/**
+ * refreshDocentes — paso 14/20 plan v3 baja/suplentes-docente (2026-04-28).
+ *
+ * Recorre FORMS_CFG, encuentra items con choicesFromList: 'docentes' (14
+ * items distribuidos en ~12 forms del ciclo + operativos), y actualiza sus
+ * choices con la lista actualizada de 👥 Docentes (filtrada Estado=Activa,
+ * formato "Apellido, Nombre" — mismo que ListasMaestrasBuilder).
+ *
+ * Cierra D-F3c-NUEVO-14 (dropdown stale post-edit 👥 Docentes): handlers
+ * pasos 10-13 invocan refreshDocentes despues del update Estado, garantizando
+ * que el proximo submit del form tenga dropdowns sincronizados.
+ *
+ * NO duplica cols del Sheet (cazada anti-D-F3c-NUEVO-12): setChoiceValues
+ * modifica choices de un item existente, NO crea/borra el item — el ID
+ * interno NO cambia, Forms NO abre col nueva en el Sheet de respuestas. Safe.
+ *
+ * NO toca form-level settings (title, description, requireLogin paso 15
+ * futuro) — solo el item especifico.
+ *
+ * Defensive:
+ *   - Lista vacia → fallback ['(sin opciones)'] (mismo patron _applyItem).
+ *   - Form fantasma (registry desincronizado) → try/catch por form, log error,
+ *     continua con los demas (SPOF mitigation).
+ *   - Item renombrado manual → log WARN sin throw + skip ese item.
+ *   - Item type cambiado manual → chequeo getType pre-cast, mismatch → skip.
+ *
+ * Performance: estimado ~12-15s para 12 forms × 14 items (Apps Script time
+ * limit handler 6 min, margin amplio). Si en escala 956 escuelas + N
+ * docentes el tiempo molesta UX → batch / lazy en deuda PEND-PROD.
+ *
+ * Race condition: 2 submits simultaneos pueden gatillar 2 refreshes paralelos.
+ * PEND-PROD-1 (LockService) sigue omitido — demo 1 directora OK.
+ *
+ * Returns: { formsProcessed, itemsUpdated, failed: [{formId, item, error}],
+ *            durationMs }.
+ */
+function refreshDocentes() {
+  const startTime = new Date().getTime();
+  const report = {
+    formsProcessed: 0,
+    itemsUpdated: 0,
+    failed: [],
+    durationMs: 0
+  };
+
+  if (typeof FORMS_CFG === 'undefined') {
+    if (typeof SetupLog !== 'undefined' && SetupLog.error) {
+      SetupLog.error('refreshDocentes: FORMS_CFG no definido');
+    }
+    report.durationMs = new Date().getTime() - startTime;
+    return report;
+  }
+
+  // 1. Lista actualizada (filtrada Estado=Activa por _readDocentesFromContainer).
+  const docentes = ListasMaestrasBuilder._readDocentesFromContainer();
+  const choicesParaSetear = docentes.length ? docentes : ['(sin opciones)'];
+
+  // 2. Iterar FORMS_CFG, encontrar forms con items 'docentes'.
+  FORMS_CFG.forEach(function(cfg) {
+    const itemsToRefresh = (cfg.items || []).filter(function(item) {
+      return item.choicesFromList === 'docentes';
+    });
+    if (!itemsToRefresh.length) return;
+
+    // 3. Resolver form via registry (defensive).
+    let form;
+    try {
+      const formEntry = PropertiesRegistry.get('form:' + cfg.id);
+      if (!formEntry || !formEntry.id) {
+        report.failed.push({ formId: cfg.id, error: 'no en registry' });
+        return;
+      }
+      form = FormApp.openById(formEntry.id);
+    } catch (err) {
+      report.failed.push({ formId: cfg.id, error: 'openById fallo: ' + String(err) });
+      return;
+    }
+
+    // 4. Para cada item refresh: encontrar en form (match by title) y
+    //    actualizar choices via cast type-aware.
+    const formItems = form.getItems();
+
+    itemsToRefresh.forEach(function(itemCfg) {
+      let updated = false;
+      let warningType = null;
+
+      for (let i = 0; i < formItems.length; i++) {
+        if (formItems[i].getTitle() !== itemCfg.title) continue;
+
+        const itemType = formItems[i].getType();
+        try {
+          if (itemType === FormApp.ItemType.LIST) {
+            formItems[i].asListItem().setChoiceValues(choicesParaSetear);
+            updated = true;
+          } else if (itemType === FormApp.ItemType.CHECKBOX) {
+            formItems[i].asCheckboxItem().setChoiceValues(choicesParaSetear);
+            updated = true;
+          } else if (itemType === FormApp.ItemType.MULTIPLE_CHOICE) {
+            formItems[i].asMultipleChoiceItem().setChoiceValues(choicesParaSetear);
+            updated = true;
+          } else {
+            warningType = 'tipo no soportado: ' + itemType;
+          }
+        } catch (err) {
+          warningType = 'setChoiceValues fallo: ' + String(err);
+        }
+        break; // primer match
+      }
+
+      if (updated) {
+        report.itemsUpdated++;
+      } else if (warningType) {
+        report.failed.push({
+          formId: cfg.id, item: itemCfg.title, error: warningType
+        });
+      } else {
+        report.failed.push({
+          formId: cfg.id, item: itemCfg.title, error: 'item no encontrado en form (renombrado manual?)'
+        });
+      }
+    });
+
+    report.formsProcessed++;
+  });
+
+  report.durationMs = new Date().getTime() - startTime;
+
+  if (typeof SetupLog !== 'undefined' && SetupLog.info) {
+    SetupLog.info('refreshDocentes OK', report);
+  }
+  console.log('refreshDocentes: ' + report.formsProcessed + ' forms, ' +
+    report.itemsUpdated + ' items, ' + report.failed.length + ' fails, ' +
+    report.durationMs + 'ms');
+
+  return report;
 }

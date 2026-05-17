@@ -365,3 +365,434 @@ function testFase25DocGenUnit() {
 
   console.log('----- Test Fase 2.5 DocGen unitario OK -----');
 }
+
+// ============================================================================
+// runCicloVidaTest — paso 19/20 plan v3 baja/suplentes-docente (2026-04-30).
+//
+// Test integracion real del ciclo de vida completo de una docente:
+// Sumar -> MarcarLicencia -> Volvio -> DarDeBaja, ejecutando los handlers
+// reales (handleSumarDocente / handleMarcarLicencia / handleVolvioLicencia /
+// handleDarDeBaja) con fakeEvents, y validando state final de 👥 Docentes
+// despues de cada step (asserts via getRange directo, NO via logs — logs
+// estan mezclados con produccion real).
+//
+// Separado de runSmokeTests porque tarda ~60-100s (4 refreshDocentes
+// embedded × ~10-24s cada uno) vs ~25s del smoke unitario. Correr standalone
+// desde el IDE de Apps Script.
+//
+// Pre-condicion empirica: template:container debe estar cacheado en
+// PropertiesRegistry (lo cachea installSubmitDispatcher post-deploy).
+// Se verifica al inicio con TemplateResolver.resolve — si falla, throw visible.
+//
+// Cleanup defensivo idempotente al inicio Y al final (try/finally) — borra
+// fila docente test por email + invalidate token + removeEditor (best-effort).
+// Garantiza arranque limpio si corrida anterior fallo a mitad.
+//
+// Decisiones de diseno (snapshot-018 §7 + 4 refinamientos del mapeo
+// de plomero pre-codigo, autodiagnostico-sesion-3-arranque-paso-19.md):
+//   1. Separado de runSmokeTests (no mezclar unitario rapido con integracion).
+//   2. Email fake unico por corrida: test-ciclo-{Date.now()}@example.com.
+//   3. SIN bonus tests handleAuthCheck (paso 16 ya validado, scope creep evitado).
+//   4. apellidoNombre fijo "TestCiclo Robot" — steps 2-4 hacen lookup por
+//      dropdown value "TestCiclo, Robot" y necesitan consistencia.
+//   5. _cleanupCicloTest borra por email (no por dropdown) — duplicate-check
+//      del paso 10 es por email lower-case, asi garantizamos idempotencia.
+//   6. Asserts via state final 👥 Docentes (tab.getRange directo) — NO via
+//      logs (mezclados con produccion, hard to filter).
+//   7. Pre-condicion empirica template:container cacheado (defensive low-cost).
+//
+// Cazadas anticipadas:
+//   A. addEditor con email fake va a fallar (no es cuenta Google real) —
+//      handleSumarDocente captura con try/catch + log WARN, no rompe.
+//   B. removeEditor en step 4 idem — log WARN esperado, no rompe.
+//   C. Si una corrida falla a mitad, _cleanupCicloTest defensive del setup
+//      borra residuos para que la proxima corrida arranque limpio.
+//
+// Returns: { stepsPassed, stepsFailed, durationMs, log: [...] }.
+// ============================================================================
+
+// ============================================================================
+// testGetEquipoDocenteNoTokenLeak — paso 17.1 SPOF 29 verification (CRÍTICO).
+// Standalone, NO parte de runSmokeTests. Correr post-paso-17.1 commit para
+// verificar que el JSON retornado por getEquipoDocenteForPanel NO contiene
+// el token de ninguna docente (col 10 de 👥 Docentes).
+//
+// Si esta función PASA → SPOF 29 mitigado, paso 17.1 puede avanzar.
+// Si FALLA → bloqueante de seguridad, NO avanzar hasta fixear el whitelist.
+// ============================================================================
+
+function testGetEquipoDocenteNoTokenLeak() {
+  console.log('===== testGetEquipoDocenteNoTokenLeak — SPOF 29 verification =====');
+
+  const result = getEquipoDocenteForPanel();
+  console.log('Result completo:');
+  console.log(JSON.stringify(result, null, 2));
+
+  Guard.assert(result.ok === true,
+    'FAIL: getEquipoDocenteForPanel retornó ok:false. reason=' + (result.reason || ''));
+
+  const equipo = result.equipo;
+  Guard.assert(equipo && typeof equipo === 'object',
+    'FAIL: equipo no es objeto. Es: ' + (typeof equipo));
+  Guard.assert(Array.isArray(equipo.activas) && Array.isArray(equipo.licencia) && Array.isArray(equipo.bajas),
+    'FAIL: equipo no tiene los 3 arrays esperados. Keys: ' + Object.keys(equipo).join(','));
+
+  // SPOF 29 BLOQUEANTE: token NO debe estar en NINGUNA parte del JSON.
+  const jsonStr = JSON.stringify(equipo);
+  const allDocentes = equipo.activas.concat(equipo.licencia).concat(equipo.bajas);
+
+  // Check 1: ninguna docente tiene 'token' como key del objeto.
+  for (let i = 0; i < allDocentes.length; i++) {
+    const d = allDocentes[i];
+    const keys = Object.keys(d);
+    Guard.assert(keys.indexOf('token') === -1,
+      'FAIL SPOF 29 Check 1: docente "' + d.email + '" tiene key "token" expuesta. Keys: ' + keys.join(','));
+  }
+  console.log('PASS Check 1: ninguna de las ' + allDocentes.length + ' docentes tiene key "token".');
+
+  // Check 2: el JSON serializado NO contiene patrones UUID v4 (8-4-4-4-12 hex).
+  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const uuidMatch = jsonStr.match(uuidPattern);
+  Guard.assert(!uuidMatch,
+    'FAIL SPOF 29 Check 2: JSON contiene patrón UUID. Match: ' + (uuidMatch ? uuidMatch[0] : ''));
+  console.log('PASS Check 2: JSON NO contiene patrones UUID.');
+
+  // Check 3: el JSON serializado NO contiene la palabra 'token' (case-insensitive).
+  Guard.assert(!/token/i.test(jsonStr),
+    'FAIL SPOF 29 Check 3: JSON contiene la palabra "token".');
+  console.log('PASS Check 3: JSON NO contiene la palabra "token".');
+
+  // Check 4: docentes tienen los campos whitelisted esperados.
+  if (allDocentes.length > 0) {
+    const sample = allDocentes[0];
+    const expectedKeys = ['apellido', 'nombre', 'email', 'tipo', 'estado', 'fechaAlta_iso', 'fechaCambio_iso'];
+    expectedKeys.forEach(function(k) {
+      Guard.assert(k in sample,
+        'FAIL Check 4: docente sample no tiene key "' + k + '". Keys: ' + Object.keys(sample).join(','));
+    });
+    // Check 5: docente NO tiene keys que NO deberían estar (dni, notas, token).
+    const forbiddenKeys = ['dni', 'notas', 'token'];
+    forbiddenKeys.forEach(function(k) {
+      Guard.assert(!(k in sample),
+        'FAIL Check 5: docente sample tiene key prohibida "' + k + '"');
+    });
+    console.log('PASS Check 4-5: docente sample tiene los 7 campos whitelisted, sin dni/notas/token.');
+  }
+
+  // Check 6: counts esperados por estado (info, no assertion).
+  const totalDocentes = equipo.activas.length + equipo.licencia.length + equipo.bajas.length;
+  console.log('Total docentes leídas: ' + totalDocentes +
+    ' (Activas: ' + equipo.activas.length +
+    ', Licencia: ' + equipo.licencia.length +
+    ', Bajas: ' + equipo.bajas.length + ')');
+
+  console.log('===== testGetEquipoDocenteNoTokenLeak OK — SPOF 29 verificado =====');
+  return result;
+}
+
+// ============================================================================
+// testGetDeployVersion — paso 17.1 SPOF 36 verification.
+// Standalone. Verifica que getDeployVersion retorna string no vacío que se
+// pueda usar como cache key client-side.
+// ============================================================================
+
+function testGetDeployVersion() {
+  console.log('===== testGetDeployVersion — SPOF 36 verification =====');
+  const version = getDeployVersion();
+  console.log('Deploy version retornada: "' + version + '"');
+  Guard.assert(typeof version === 'string',
+    'FAIL: getDeployVersion no retorna string. Es: ' + (typeof version));
+  Guard.assert(version.length > 0,
+    'FAIL: getDeployVersion retorna string vacío.');
+  Guard.assert(version !== 'unknown' || true,
+    'INFO: version es "unknown" — probable contexto sin URL deployada (correr post-deploy si hace falta cachear).');
+  console.log('PASS: deploy version OK, length=' + version.length);
+  console.log('===== testGetDeployVersion OK =====');
+  return version;
+}
+
+// ============================================================================
+// testSubmitOperativoFromPanelInvalid — paso 17.1 verificación del orquestador.
+// Standalone. Invoca submitOperativoFromPanel con email INEXISTENTE para
+// validar que el wrapper retorna {ok:false, reason:'docente-not-found'} sin
+// tocar producción. NO muta el Sheet 👥 Docentes.
+// ============================================================================
+
+function testSubmitOperativoFromPanelInvalid() {
+  console.log('===== testSubmitOperativoFromPanelInvalid — orquestador no-mutating =====');
+  const fakeEmail = 'no-existe-test-' + Date.now() + '@example.com';
+  console.log('Email fake: ' + fakeEmail);
+  const result = submitOperativoFromPanel('marcarLicencia', fakeEmail);
+  console.log('Result: ' + JSON.stringify(result));
+  Guard.assert(result.ok === false,
+    'FAIL: esperaba ok:false con email inexistente. Recibí: ' + JSON.stringify(result));
+  Guard.assert(result.reason === 'docente-not-found',
+    'FAIL: esperaba reason="docente-not-found". Recibí: ' + result.reason);
+  console.log('PASS: orquestador retorna docente-not-found sin mutar producción.');
+
+  // Verificación bonus: accion invalida.
+  console.log('--- Bonus: accion inválida ---');
+  const result2 = submitOperativoFromPanel('accionFalsa', fakeEmail);
+  Guard.assert(result2.reason === 'invalid-accion',
+    'FAIL: esperaba reason="invalid-accion". Recibí: ' + result2.reason);
+  console.log('PASS: accion invalida retorna invalid-accion.');
+
+  console.log('===== testSubmitOperativoFromPanelInvalid OK =====');
+}
+
+function runCicloVidaTest() {
+  const startedAt = new Date();
+  const tag = 'CICLO-VIDA-' + startedAt.getTime();
+  const email = 'test-ciclo-' + startedAt.getTime() + '@example.com';
+  const apellido = 'TestCiclo';
+  const nombre = 'Robot';
+  const apellidoNombre = apellido + ' ' + nombre;
+  const dropdownValue = apellido + ', ' + nombre;
+  const dni = '99999999';
+  const tipo = 'Suplente';
+
+  console.log('===== ' + tag + ' START =====');
+  console.log('email: ' + email);
+  console.log('apellidoNombre: "' + apellidoNombre + '" -> dropdown="' + dropdownValue + '"');
+
+  // Pre-condicion empirica: template:container cacheado.
+  const ssCheck = TemplateResolver.resolve('👥 Docentes');
+  if (!ssCheck) {
+    throw new Error(tag + ': pre-condicion fallo — TemplateResolver.resolve null. ' +
+      'Correr installSubmitDispatcher() para cachear template:container ANTES de runCicloVidaTest.');
+  }
+  console.log('PRE-CONDICION OK: template:container resuelto.');
+
+  const log = [];
+  let stepsPassed = 0;
+  let stepsFailed = 0;
+
+  // Setup defensivo idempotente — borra residuos de corrida anterior si existen.
+  _cleanupCicloTest(email);
+
+  try {
+    // ========== Step 1: handleSumarDocente ==========
+    console.log('----- Step 1: Sumar -----');
+    try {
+      handleSumarDocente({
+        namedValues: {
+          'Apellido y nombre': [apellidoNombre],
+          'DNI': [dni],
+          'Email': [email],
+          'Tipo': [tipo]
+        }
+      });
+      const fila = _findCicloTestRow(email);
+      Guard.assert(fila > 0, 'Step 1: fila no encontrada post-Sumar (handler fallo silencioso?)');
+      const tab = TemplateResolver.resolve('👥 Docentes').getSheetByName('👥 Docentes');
+      const row = tab.getRange(fila, 1, 1, 10).getValues()[0];
+      Guard.assert(String(row[0]).trim() === apellido,
+        'Step 1: apellido col 1 mismatch — esperaba "' + apellido + '", es "' + row[0] + '"');
+      Guard.assert(String(row[1]).trim() === nombre,
+        'Step 1: nombre col 2 mismatch — esperaba "' + nombre + '", es "' + row[1] + '"');
+      Guard.assert(String(row[3]).trim().toLowerCase() === email.toLowerCase(),
+        'Step 1: email col 4 mismatch');
+      Guard.assert(String(row[5]).trim() === 'Activa',
+        'Step 1: estado col 6 debe ser Activa, es "' + row[5] + '"');
+      // Sesión 5 chunk F: col 10 (Token) deprecated en modelo C — debe quedar
+      // vacía en filas nuevas. Schema 10 cols mantenido para no romper
+      // idempotency con Sheets en producción.
+      Guard.assert(String(row[9] || '').trim() === '',
+        'Step 1: col 10 debe quedar vacia (modelo C, sin token), es "' + row[9] + '"');
+      console.log('PASS Step 1: fila ' + fila + ' Activa + col 10 vacia (modelo C)');
+      log.push({ step: 1, name: 'Sumar', pass: true, row: fila });
+      stepsPassed++;
+    } catch (err) {
+      console.error('FAIL Step 1: ' + err);
+      log.push({ step: 1, name: 'Sumar', pass: false, err: String(err) });
+      stepsFailed++;
+      // Sin step 1 no hay docente para los demas steps — abort.
+      throw new Error(tag + ': step 1 fallo, abort cadena: ' + err);
+    }
+
+    // ========== Step 2: handleMarcarLicencia ==========
+    console.log('----- Step 2: MarcarLicencia -----');
+    try {
+      handleMarcarLicencia({
+        namedValues: {
+          'Que docente esta de licencia?': [dropdownValue]
+        }
+      });
+      const fila = _findCicloTestRow(email);
+      Guard.assert(fila > 0, 'Step 2: fila desaparecio (handleMarcarLicencia NO debe borrarla)');
+      const tab = TemplateResolver.resolve('👥 Docentes').getSheetByName('👥 Docentes');
+      const row = tab.getRange(fila, 1, 1, 10).getValues()[0];
+      Guard.assert(String(row[5]).trim() === 'Licencia',
+        'Step 2: estado col 6 debe ser Licencia, es "' + row[5] + '"');
+      Guard.assert(row[7] instanceof Date,
+        'Step 2: Fecha cambio col 8 debe ser Date, es ' + (typeof row[7]));
+      console.log('PASS Step 2: Estado=Licencia + Fecha cambio actualizada');
+      log.push({ step: 2, name: 'MarcarLicencia', pass: true, row: fila });
+      stepsPassed++;
+    } catch (err) {
+      console.error('FAIL Step 2: ' + err);
+      log.push({ step: 2, name: 'MarcarLicencia', pass: false, err: String(err) });
+      stepsFailed++;
+    }
+
+    // ========== Step 3: handleVolvioLicencia ==========
+    console.log('----- Step 3: Volvio -----');
+    try {
+      handleVolvioLicencia({
+        namedValues: {
+          'Que docente volvio?': [dropdownValue]
+        }
+      });
+      const fila = _findCicloTestRow(email);
+      Guard.assert(fila > 0, 'Step 3: fila desaparecio');
+      const tab = TemplateResolver.resolve('👥 Docentes').getSheetByName('👥 Docentes');
+      const row = tab.getRange(fila, 1, 1, 10).getValues()[0];
+      Guard.assert(String(row[5]).trim() === 'Activa',
+        'Step 3: estado col 6 debe volver a Activa, es "' + row[5] + '"');
+      console.log('PASS Step 3: Estado=Activa');
+      log.push({ step: 3, name: 'VolvioLicencia', pass: true, row: fila });
+      stepsPassed++;
+    } catch (err) {
+      console.error('FAIL Step 3: ' + err);
+      log.push({ step: 3, name: 'VolvioLicencia', pass: false, err: String(err) });
+      stepsFailed++;
+    }
+
+    // ========== Step 4: handleDarDeBaja ==========
+    console.log('----- Step 4: DarDeBaja -----');
+    try {
+      handleDarDeBaja({
+        namedValues: {
+          'A quien das de baja?': [dropdownValue],
+          'Confirmacion': ['Si, dar de baja. Entiendo que pierde acceso al Drive y la operacion no es reversible.']
+        }
+      });
+      const fila = _findCicloTestRow(email);
+      Guard.assert(fila > 0,
+        'Step 4: fila desaparecio (handleDarDeBaja NO debe borrar fila — queda como historico institucional)');
+      const tab = TemplateResolver.resolve('👥 Docentes').getSheetByName('👥 Docentes');
+      const row = tab.getRange(fila, 1, 1, 10).getValues()[0];
+      Guard.assert(String(row[5]).trim() === 'No disponible',
+        'Step 4: estado col 6 debe ser No disponible, es "' + row[5] + '"');
+      // Sesión 5 chunk F: col 10 (Token) deprecated en modelo C — sigue vacía
+      // post-baja (ya estaba vacía desde el alta). Assertion mantiene cobertura.
+      Guard.assert(String(row[9] || '').trim() === '',
+        'Step 4: col 10 debe quedar vacia (modelo C), es "' + row[9] + '"');
+      console.log('PASS Step 4: Estado=No disponible + col 10 vacia');
+      log.push({ step: 4, name: 'DarDeBaja', pass: true, row: fila });
+      stepsPassed++;
+    } catch (err) {
+      console.error('FAIL Step 4: ' + err);
+      log.push({ step: 4, name: 'DarDeBaja', pass: false, err: String(err) });
+      stepsFailed++;
+    }
+
+  } finally {
+    // Cleanup final idempotente — borra fila test del 👥 Docentes para no contaminar.
+    console.log('----- Cleanup final -----');
+    _cleanupCicloTest(email);
+  }
+
+  const durationMs = (new Date()) - startedAt;
+  const report = {
+    stepsPassed: stepsPassed,
+    stepsFailed: stepsFailed,
+    durationMs: durationMs,
+    log: log
+  };
+  console.log('===== ' + tag + ' END =====');
+  console.log(JSON.stringify(report, null, 2));
+  return report;
+}
+
+/**
+ * _cleanupCicloTest(email) — helper idempotente para limpiar residuos del
+ * runCicloVidaTest entre corridas. Borra la fila por email (no por dropdown)
+ * para que el duplicate-check de handleSumarDocente (paso 10, lower-case email)
+ * no bloquee la siguiente corrida.
+ *
+ * Pasos defensivos (todos best-effort, ningun throw):
+ *   1. Buscar fila por email en 👥 Docentes.
+ *   2. Capturar email real antes de borrar (para removeEditor).
+ *   3. Borrar la fila (deleteRow) — operacion mas critica.
+ *   4. RemoveEditor del yearFolder (si tenia email — fallara con email fake, OK).
+ *
+ * Idempotente: si la docente test no existe (primera corrida), retorna sin tocar.
+ *
+ * Sesion 5 chunk F: eliminado paso de TokenService.invalidate — col 10 deprecated
+ * (modelo C identifica por mail, no por token).
+ */
+function _cleanupCicloTest(email) {
+  const targetEmail = String(email || '').trim().toLowerCase();
+  if (!targetEmail) return;
+
+  let ss;
+  try {
+    ss = TemplateResolver.resolve('👥 Docentes');
+  } catch (err) {
+    console.log('_cleanupCicloTest: TemplateResolver.resolve fallo (skip): ' + err);
+    return;
+  }
+  if (!ss) return;
+  const tab = ss.getSheetByName('👥 Docentes');
+  if (!tab) return;
+
+  const lastRow = tab.getLastRow();
+  if (lastRow < 3) return;
+
+  const range = tab.getRange(3, 1, lastRow - 2, 6).getValues();
+  for (let i = 0; i < range.length; i++) {
+    const rowEmail = String(range[i][3] || '').trim().toLowerCase();
+    if (rowEmail !== targetEmail) continue;
+
+    const rowIndex = 3 + i;
+    const emailReal = String(range[i][3] || '').trim();
+
+    try {
+      tab.deleteRow(rowIndex);
+      console.log('_cleanupCicloTest: fila ' + rowIndex + ' borrada (email ' + emailReal + ')');
+    } catch (err) {
+      console.log('_cleanupCicloTest: deleteRow fila ' + rowIndex + ' fallo: ' + err);
+    }
+
+    try {
+      const yearFolderEntry = PropertiesRegistry.get('folder:2026');
+      if (yearFolderEntry && yearFolderEntry.id) {
+        DriveApp.getFolderById(yearFolderEntry.id).removeEditor(emailReal);
+      }
+    } catch (err) {
+      // Esperado con email fake — log silencioso.
+    }
+
+    return; // 1 fila max por email (duplicate-check del paso 10).
+  }
+}
+
+/**
+ * _findCicloTestRow(email) — busca fila docente test por email
+ * (case-insensitive) en 👥 Docentes. Retorna row absoluto (3+) o -1.
+ *
+ * Helper local para asserts del runCicloVidaTest. NO filtra por Estado
+ * (a diferencia de _findDocenteByEmail del paso 16 que filtra Estado=Activa).
+ * Necesario porque step 4 valida que la fila quede con Estado='No disponible'
+ * y el lookup debe encontrarla igual.
+ */
+function _findCicloTestRow(email) {
+  const targetEmail = String(email || '').trim().toLowerCase();
+  if (!targetEmail) return -1;
+
+  const ss = TemplateResolver.resolve('👥 Docentes');
+  if (!ss) return -1;
+  const tab = ss.getSheetByName('👥 Docentes');
+  if (!tab) return -1;
+
+  const lastRow = tab.getLastRow();
+  if (lastRow < 3) return -1;
+
+  const range = tab.getRange(3, 1, lastRow - 2, 4).getValues();
+  for (let i = 0; i < range.length; i++) {
+    const rowEmail = String(range[i][3] || '').trim().toLowerCase();
+    if (rowEmail === targetEmail) return 3 + i;
+  }
+  return -1;
+}
